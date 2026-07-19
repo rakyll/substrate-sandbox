@@ -49,7 +49,7 @@ README), `ko`, and a snapshots bucket.
 # 1. Deploy the system: namespace, worker pool, and sandbox template.
 #    Images must be digest-pinned; build and push them with ko.
 export KO_DOCKER_REPO=gcr.io/<your-project>
-sbcli deploy \
+sbcli system deploy \
   --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
   --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
   --snapshots-location gs://<your-bucket>/substrate-sandbox/
@@ -59,11 +59,11 @@ kubectl port-forward -n ate-system svc/ateapi 8080:443 &
 kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 
 # 3. Create and use a sandbox.
-sbcli create sandbox-dev
-sbcli cmd sandbox-dev 'echo hello > /workspace/note.txt'
-sbcli suspend sandbox-dev
-sbcli cmd sandbox-dev 'cat /workspace/note.txt' # auto-resumes; prints hello
-sbcli rm sandbox-dev
+sbcli sandbox create sandbox-dev
+sbcli sandbox cmd sandbox-dev 'echo hello > /workspace/note.txt'
+sbcli sandbox suspend sandbox-dev
+sbcli sandbox cmd sandbox-dev 'cat /workspace/note.txt' # auto-resumes; prints hello
+sbcli sandbox rm sandbox-dev
 ```
 
 Or run the REST service:
@@ -77,31 +77,39 @@ curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/cmd \
 
 ## CLI
 
-```bash
-$ sbcli
-Manage sandboxes on Agent Substrate
+Commands are grouped under `sandbox` (lifecycle and command execution),
+`fs` (file operations), and `system` (deployment):
 
-Usage:
-  sbcli [command]
+```bash
+$ sbcli sandbox
+Manage sandbox lifecycle and run commands
 
 Available Commands:
   cmd         Run a shell command line in the sandbox
-  completion  Generate the autocompletion script for the specified shell
   create      Create and start a sandbox
-  deploy      Deploy the system to a cluster running Agent Substrate
-  help        Help about any command
   info        Show a sandbox's status
   ls          List sandboxes
-  lsdir       List a sandbox directory
-  mkdir       Create a directory in the sandbox
   pause       Snapshot locally on the node for fast resume
-  read        Print a sandbox file to stdout
   resume      Resume from the latest snapshot
   rm          Delete a sandbox
-  rmpath      Delete a file or directory tree in the sandbox
-  stat        Stat a sandbox path
   suspend     Snapshot to external storage and free the worker
+
+$ sbcli fs
+Operate on files and directories in a sandbox
+
+Available Commands:
+  ls          List a sandbox directory
+  mkdir       Create a directory in the sandbox
+  read        Print a sandbox file to stdout
+  rm          Delete a file or directory tree in the sandbox
+  stat        Stat a sandbox path
   write       Write stdin to a sandbox file
+
+$ sbcli system
+Manage the system deployment
+
+Available Commands:
+  deploy      Deploy the system to a cluster running Agent Substrate
 ```
 
 ## SDK

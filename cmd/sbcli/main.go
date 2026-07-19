@@ -67,9 +67,23 @@ func main() {
 	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
 	root.PersistentFlags().BoolVar(&skipVerify, "skip-verify", true, "skip TLS certificate verification on the control plane connection")
 
-	root.AddCommand(newDeployCommand(&namespace, &template))
+	sandboxCmd := &cobra.Command{
+		Use:   "sandbox",
+		Short: "Manage sandbox lifecycle and run commands",
+	}
+	fsCmd := &cobra.Command{
+		Use:   "fs",
+		Short: "Operate on files and directories in a sandbox",
+	}
+	systemCmd := &cobra.Command{
+		Use:   "system",
+		Short: "Manage the system deployment",
+	}
+	root.AddCommand(sandboxCmd, fsCmd, systemCmd)
 
-	root.AddCommand(&cobra.Command{
+	systemCmd.AddCommand(newDeployCommand(&namespace, &template))
+
+	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "create <id>",
 		Short: "Create and start a sandbox",
 		Args:  cobra.ExactArgs(1),
@@ -83,7 +97,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "ls",
 		Short: "List sandboxes",
 		Args:  cobra.NoArgs,
@@ -101,7 +115,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "info <id>",
 		Short: "Show a sandbox's status",
 		Args:  cobra.ExactArgs(1),
@@ -119,7 +133,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "suspend <id>",
 		Short: "Snapshot to external storage and free the worker",
 		Args:  cobra.ExactArgs(1),
@@ -128,7 +142,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "pause <id>",
 		Short: "Snapshot locally on the node for fast resume",
 		Args:  cobra.ExactArgs(1),
@@ -137,7 +151,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "resume <id>",
 		Short: "Resume from the latest snapshot",
 		Args:  cobra.ExactArgs(1),
@@ -146,7 +160,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "rm <id>",
 		Short: "Delete a sandbox",
 		Args:  cobra.ExactArgs(1),
@@ -155,7 +169,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "cmd <id> <cmdline>",
 		Short: "Run a shell command line in the sandbox",
 		Args:  cobra.ExactArgs(2),
@@ -176,7 +190,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	fsCmd.AddCommand(&cobra.Command{
 		Use:   "read <id> <path>",
 		Short: "Print a sandbox file to stdout",
 		Args:  cobra.ExactArgs(2),
@@ -190,7 +204,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	fsCmd.AddCommand(&cobra.Command{
 		Use:   "write <id> <path>",
 		Short: "Write stdin to a sandbox file",
 		Args:  cobra.ExactArgs(2),
@@ -203,8 +217,8 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
-		Use:   "lsdir <id> <path>",
+	fsCmd.AddCommand(&cobra.Command{
+		Use:   "ls <id> <path>",
 		Short: "List a sandbox directory",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -220,7 +234,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	fsCmd.AddCommand(&cobra.Command{
 		Use:   "stat <id> <path>",
 		Short: "Stat a sandbox path",
 		Args:  cobra.ExactArgs(2),
@@ -234,8 +248,8 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
-		Use:   "rmpath <id> <path>",
+	fsCmd.AddCommand(&cobra.Command{
+		Use:   "rm <id> <path>",
 		Short: "Delete a file or directory tree in the sandbox",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -243,7 +257,7 @@ func main() {
 		},
 	})
 
-	root.AddCommand(&cobra.Command{
+	fsCmd.AddCommand(&cobra.Command{
 		Use:   "mkdir <id> <path>",
 		Short: "Create a directory in the sandbox",
 		Args:  cobra.ExactArgs(2),

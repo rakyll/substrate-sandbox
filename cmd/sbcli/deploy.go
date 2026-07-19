@@ -52,7 +52,7 @@ unpinned images because changing an image invalidates snapshots. Build
 and push them with ko:
 
   export KO_DOCKER_REPO=gcr.io/<your-project>
-  sbcli deploy \
+  sbcli system deploy \
     --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     --snapshots-location gs://<bucket>/substrate-sandbox/ \
@@ -138,7 +138,7 @@ func runDeploy(ctx context.Context, cmd *cobra.Command, kube kubernetes.Interfac
 	if err := waitTemplateReady(ctx, ate, cfg.namespace, cfg.template, cfg.waitForReady); err != nil {
 		return err
 	}
-	cmd.Printf("actortemplate %s/%s is Ready; create sandboxes with: sbcli create <id> --template %s --namespace %s\n",
+	cmd.Printf("actortemplate %s/%s is Ready; create sandboxes with: sbcli sandbox create <id> --template %s --namespace %s\n",
 		cfg.namespace, cfg.template, cfg.template, cfg.namespace)
 	return nil
 }
