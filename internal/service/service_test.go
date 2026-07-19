@@ -79,7 +79,7 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	router.Register("web-1", (&guest.Server{Workdir: t.TempDir()}).Handler())
 
 	// Create.
-	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"web-1"}`)
+	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"web-1","template":"sandboxes/default"}`)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create status = %d, want 201", resp.StatusCode)
 	}
@@ -141,6 +141,10 @@ func TestRESTValidation(t *testing.T) {
 	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{}`)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("create without id status = %d, want 400", resp.StatusCode)
+	}
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"no-template"}`)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("create without template status = %d, want 400", resp.StatusCode)
 	}
 	resp = do(t, "GET", srv.URL+"/v1/sandboxes/absent", "")
 	if resp.StatusCode != http.StatusNotFound {

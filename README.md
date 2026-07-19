@@ -62,8 +62,9 @@ Or run the REST service:
 ```bash
 go install github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd@latest
 
-substrate-sandboxd -template substrate-sandbox/sandbox
-curl -X POST localhost:8081/v1/sandboxes -d '{"id":"sandbox-dev"}'
+substrate-sandboxd
+curl -X POST localhost:8081/v1/sandboxes \
+     -d '{"id":"sandbox-dev","template":"substrate-sandbox/sandbox"}'
 curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/exec \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
@@ -100,7 +101,7 @@ file operations transparently resume a suspended sandbox and retry.
 
 | Method & path                        | Description                              |
 | ------------------------------------ | ---------------------------------------- |
-| `POST /v1/sandboxes`                 | create (`{"id", "template"?, "start"?}`) |
+| `POST /v1/sandboxes`                 | create (`{"id", "template", "start"?}`)  |
 | `GET /v1/sandboxes`                  | list                                     |
 | `GET /v1/sandboxes/{id}`             | status                                   |
 | `DELETE /v1/sandboxes/{id}`          | delete                                   |

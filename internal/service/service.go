@@ -21,9 +21,9 @@ type CreateSandboxRequest struct {
 	// ID is the sandbox identifier (a DNS-1123 label). Required.
 	ID string `json:"id"`
 
-	// Template overrides the server's default ActorTemplate, as
-	// "namespace/name".
-	Template string `json:"template,omitempty"`
+	// Template is the ActorTemplate the sandbox is created from, as
+	// "namespace/name". Required.
+	Template string `json:"template"`
 
 	// WorkerSelector constrains which worker pools can host the sandbox.
 	WorkerSelector map[string]string `json:"workerSelector,omitempty"`
@@ -109,10 +109,11 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 		writeBadRequest(w, "id is required")
 		return
 	}
-	var opts []sandbox.CreateOption
-	if req.Template != "" {
-		opts = append(opts, sandbox.WithTemplate(req.Template))
+	if req.Template == "" {
+		writeBadRequest(w, "template is required")
+		return
 	}
+	opts := []sandbox.CreateOption{sandbox.WithTemplate(req.Template)}
 	if len(req.WorkerSelector) > 0 {
 		opts = append(opts, sandbox.WithWorkerSelector(req.WorkerSelector))
 	}
