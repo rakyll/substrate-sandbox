@@ -1,4 +1,4 @@
-// Command sbcli is a CLI for the sandbox service. Sandbox commands go
+// Command ssbx is a CLI for the sandbox service. Sandbox commands go
 // through the substrate-sandbox REST service using the sandbox SDK;
 // system commands talk to the Kubernetes API.
 //
@@ -33,7 +33,7 @@ func main() {
 	)
 
 	root := &cobra.Command{
-		Use:           "sbcli",
+		Use:           "ssbx",
 		Short:         "Manage sandboxes on Agent Substrate",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -171,7 +171,7 @@ func main() {
 			os.Stdout.WriteString(res.Stdout)
 			os.Stderr.WriteString(res.Stderr)
 			if res.TimedOut {
-				fmt.Fprintln(os.Stderr, "sbcli: command timed out")
+				fmt.Fprintln(os.Stderr, "ssbx: command timed out")
 			}
 			if res.ExitCode != 0 {
 				os.Exit(res.ExitCode)
@@ -263,7 +263,7 @@ func main() {
 	})
 
 	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "sbcli:", err)
+		fmt.Fprintln(os.Stderr, "ssbx:", err)
 		os.Exit(1)
 	}
 }

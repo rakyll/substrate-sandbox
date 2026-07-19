@@ -1,6 +1,6 @@
 // Package sandbox is the Go SDK for the sandbox service. It talks to the
 // substrate-sandbox REST service, which bridges to the Substrate
-// control plane and router; `sbcli deploy` runs that service
+// control plane and router; `ssbx deploy` runs that service
 // in-cluster.
 package sandbox
 

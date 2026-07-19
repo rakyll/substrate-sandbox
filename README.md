@@ -15,10 +15,10 @@ while this project adds the sandbox-shaped API on top.
 ## Overview
 
 ```
- ╭─────────╮    ╭─────────────╮  lifecycle  ╭────────────╮
- │   SDK   │    │             ├────────────▶│   ateapi   │  Substrate control plane
- │   CLI   ├───▶│   Sandbox   │             ╰────────────╯
- ╰─────────╯    │     API     │   cmd/fs    ╭────────────╮     ╭────────────────────────────╮
+ ╭──────────╮   ╭─────────────╮  lifecycle  ╭────────────╮
+ │   SDK    │   │             ├────────────▶│   ateapi   │  Substrate control plane
+ │ ssbx CLI ├──▶│   Sandbox   │             ╰────────────╯
+ ╰──────────╯   │     API     │   cmd/fs    ╭────────────╮     ╭────────────────────────────╮
                 │             ├────────────▶│   atenet   ├────▶│ actor                      │
                 ╰─────────────╯             │   router   │     │  └ substrate-sandbox-guest │
                                             ╰────────────╯     │    /v1/cmd, /v1/fs/*       │
@@ -28,6 +28,8 @@ while this project adds the sandbox-shaped API on top.
 - **`sandbox/`** — the Go SDK, a client of the REST API. Allows creation, suspension,
 resumption, and deletion of sandboxes; as well as file operations and running remote
 commands on the sandboxes.
+- **`cmd/ssbx`** — the CLI (`ssbx`). Deploys the system and drives sandboxes
+  from the terminal.
 - **`cmd/substrate-sandbox`** — the REST service. It bridges clients to
   the Substrate control plane and router.
 - **`cmd/substrate-sandbox-guest`** — the daemon server available in the sandbox. It runs
@@ -35,16 +37,16 @@ commands on the sandboxes.
 
 ## Installation
 
-Download `sbcli` from the [releases page](https://github.com/rakyll/substrate-sandbox/releases),
+Download `ssbx` from the [releases page](https://github.com/rakyll/substrate-sandbox/releases),
 or build from source:
 
 ```bash
-go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
+go install github.com/rakyll/substrate-sandbox/cmd/ssbx@latest
 ```
 
-Release binaries embed digest-pinned default images for `sbcli deploy`;
+Release binaries embed digest-pinned default images for `ssbx deploy`;
 source builds don't, so deploying with one requires building the images
-yourself with `ko` (see `sbcli deploy --help`).
+yourself with `ko` (see `ssbx deploy --help`).
 
 ## Quickstart
 
@@ -53,17 +55,17 @@ README) and a snapshots bucket.
 
 ```bash
 # 1. Deploy the system: namespace, worker pool, and sandbox template.
-sbcli deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
+ssbx deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the sandbox API.
 kubectl port-forward svc/substrate-sandbox 7777:7777 &
 
 # 3. Create and use a sandbox.
-sbcli sandbox create dev1
-sbcli sandbox cmd dev1 'echo hello > /workspace/note.txt'
-sbcli sandbox suspend dev1
-sbcli sandbox cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
-sbcli sandbox delete dev1
+ssbx sandbox create dev1
+ssbx sandbox cmd dev1 'echo hello > /workspace/note.txt'
+ssbx sandbox suspend dev1
+ssbx sandbox cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
+ssbx sandbox delete dev1
 ```
 
 Or use the REST API directly:
@@ -81,7 +83,7 @@ execution) and `sandbox fs` (file operations); `deploy` sets up the system
 on a cluster:
 
 ```bash
-$ sbcli sandbox
+$ ssbx sandbox
 Manage sandbox lifecycle and run commands
 
 Available Commands:
@@ -95,7 +97,7 @@ Available Commands:
   resume      Resume from the latest snapshot
   suspend     Snapshot to external storage and free the worker
 
-$ sbcli sandbox fs
+$ ssbx sandbox fs
 Operate on files and directories in a sandbox
 
 Available Commands:
@@ -107,7 +109,7 @@ Available Commands:
   stat        Stat a sandbox path
   write       Write stdin to a sandbox file
 
-$ sbcli deploy --help
+$ ssbx deploy --help
 Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
@@ -149,7 +151,7 @@ program.
 
 ## API
 
-`substrate-sandbox` serves the REST API. `sbcli deploy` runs it
+`substrate-sandbox` serves the REST API. `ssbx deploy` runs it
 in-cluster as the `substrate-sandbox` service (port 7777); it can also be
 run standalone (default `0.0.0.0:7777`). Responses are JSON unless noted.
 

@@ -1,8 +1,8 @@
 name: release
 
 # Tagging vX.Y.Z publishes the two deployment images (digest-pinned) and a
-# GitHub release with sbcli/substrate-sandbox binaries that have those
-# image references baked in, so `sbcli deploy` works without ko.
+# GitHub release with ssbx/substrate-sandbox binaries that have those
+# image references baked in, so `ssbx deploy` works without ko.
 on:
   push:
     tags: ["v*"]
@@ -62,7 +62,7 @@ jobs:
             for arch in amd64 arm64; do
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
                 -ldflags "-s -w -X main.defaultGuestImage=$GUEST_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE -X main.defaultAPIImage=$API_IMAGE" \
-                -o "dist/sbcli-$os-$arch" ./cmd/sbcli
+                -o "dist/ssbx-$os-$arch" ./cmd/ssbx
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
                 -o "dist/substrate-sandbox-$os-$arch" ./cmd/substrate-sandbox
             done
@@ -75,7 +75,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="Default deploy images baked into sbcli:
+          notes="Default deploy images baked into ssbx:
           - \`${{ steps.guest.outputs.image }}\`
           - \`${{ steps.ateom.outputs.image }}\`
           - \`${{ steps.api.outputs.image }}\`"

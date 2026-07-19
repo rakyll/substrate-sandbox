@@ -62,18 +62,18 @@ already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
 created from, and the substrate-sandbox REST service.
 
-Released sbcli binaries embed digest-pinned default images for the guest
+Released ssbx binaries embed digest-pinned default images for the guest
 daemon and the worker, so only --snapshots-bucket is required:
 
-  sbcli deploy --snapshots-bucket gs://<bucket>/substrate-sandbox/
+  ssbx deploy --snapshots-bucket gs://<bucket>/substrate-sandbox/
 
 Images must be pinned by digest (repo@sha256:...); Substrate rejects
 unpinned images because changing an image invalidates snapshots. To use
-your own images (required when sbcli was built from source), build and
+your own images (required when ssbx was built from source), build and
 push them with ko:
 
   export KO_DOCKER_REPO=gcr.io/<your-project>
-  sbcli deploy \
+  ssbx deploy \
     --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-guest) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     --snapshots-bucket gs://<bucket>/substrate-sandbox/ \
@@ -124,11 +124,11 @@ func (c *deployConfig) resolveImages() error {
 	if c.guestImage != "" && c.ateomImage != "" && c.apiImage != "" {
 		return nil
 	}
-	return errors.New(`no default images are baked into this build of sbcli (they are set when
-sbcli is built by a release); pass the images explicitly:
+	return errors.New(`no default images are baked into this build of ssbx (they are set when
+ssbx is built by a release); pass the images explicitly:
 
   export KO_DOCKER_REPO=<your-registry>
-  sbcli deploy \
+  ssbx deploy \
     --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-guest) \
     --api-image    $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
@@ -185,7 +185,7 @@ func runDeploy(ctx context.Context, cmd *cobra.Command, kube kubernetes.Interfac
 	if err := waitTemplateReady(ctx, ate, cfg.namespace, cfg.template, cfg.waitForReady); err != nil {
 		return err
 	}
-	cmd.Printf("actortemplate %s/%s is Ready; create sandboxes with: sbcli sandbox create <id> --template %s --namespace %s\n",
+	cmd.Printf("actortemplate %s/%s is Ready; create sandboxes with: ssbx sandbox create <id> --template %s --namespace %s\n",
 		cfg.namespace, cfg.template, cfg.template, cfg.namespace)
 	return nil
 }
