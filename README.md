@@ -25,7 +25,7 @@ while this project adds the sandbox-shaped API on top.
                                                                ╰────────────────────────────╯
 ```
 
-- **`sandbox/`** — the Go SDK, a client of the REST API. Allows creation, suspension,
+- **`sandbox`** — the Go SDK, a client of the REST API. Allows creation, suspension,
 resumption, and deletion of sandboxes; as well as file operations and running remote
 commands on the sandboxes.
 - **`cmd/ssbx`** — the CLI (`ssbx`). Provides a CLI over the REST API, and utilies to
