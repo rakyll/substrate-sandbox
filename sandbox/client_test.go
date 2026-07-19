@@ -39,8 +39,8 @@ func newFixture(t *testing.T, autoResume bool) *fixture {
 	guestDir := t.TempDir()
 
 	client, err := sandbox.New(sandbox.Options{
-		ControlAddr:       controlAddr,
-		RouterAddr:        routerAddr,
+		ControlAddr: controlAddr,
+		RouterAddr:  routerAddr,
 		Template:    "default",
 		Namespace:   "sandboxes",
 		SkipVerify:  true,
