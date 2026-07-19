@@ -26,10 +26,10 @@ jobs:
       - name: Log in to ghcr.io
         run: echo "${{ github.token }}" | ko login ghcr.io --username "${{ github.actor }}" --password-stdin
 
-      - name: Publish substrate-guestd image
-        id: guestd
+      - name: Publish substrate-guest-api image
+        id: guest-api
         run: |
-          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-guestd ko build --bare ./cmd/substrate-guestd)
+          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-guest-api ko build --bare ./cmd/substrate-guest-api)
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
       - name: Publish substrate-sandbox-api image
@@ -53,7 +53,7 @@ jobs:
 
       - name: Build binaries
         env:
-          GUESTD_IMAGE: ${{ steps.guestd.outputs.image }}
+          GUEST_API_IMAGE: ${{ steps.guest-api.outputs.image }}
           ATEOM_IMAGE: ${{ steps.ateom.outputs.image }}
           API_IMAGE: ${{ steps.api.outputs.image }}
         run: |
@@ -61,7 +61,7 @@ jobs:
           for os in linux darwin; do
             for arch in amd64 arm64; do
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
-                -ldflags "-s -w -X main.defaultGuestdImage=$GUESTD_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE -X main.defaultAPIImage=$API_IMAGE" \
+                -ldflags "-s -w -X main.defaultGuestAPIImage=$GUEST_API_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE -X main.defaultAPIImage=$API_IMAGE" \
                 -o "dist/sbcli-$os-$arch" ./cmd/sbcli
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
                 -o "dist/substrate-sandbox-api-$os-$arch" ./cmd/substrate-sandbox-api
@@ -76,7 +76,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes="Default deploy images baked into sbcli:
-          - \`${{ steps.guestd.outputs.image }}\`
+          - \`${{ steps.guest-api.outputs.image }}\`
           - \`${{ steps.ateom.outputs.image }}\`
           - \`${{ steps.api.outputs.image }}\`"
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

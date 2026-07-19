@@ -1,4 +1,4 @@
-// Command substrate-guestd is the daemon that runs inside a Substrate actor
+// Command substrate-guest-api is the daemon that runs inside a Substrate actor
 // and exposes command execution and filesystem access over HTTP. It is the
 // in-sandbox half of the sandbox service; the atenet router forwards
 // per-sandbox traffic to it.
@@ -33,6 +33,6 @@ func main() {
 	}
 
 	srv := &guest.Server{Workdir: *workdir}
-	log.Printf("substrate-guestd listening on %s (workdir %s)", *addr, *workdir)
+	log.Printf("substrate-guest-api listening on %s (workdir %s)", *addr, *workdir)
 	log.Fatal(http.ListenAndServe(*addr, srv.Handler()))
 }

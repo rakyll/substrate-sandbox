@@ -18,12 +18,12 @@ while this project adds the sandbox-shaped API on top.
    ┌─────┐      ┌─────────┐ lifecycle ┌────────────┐
    │ SDK │      │         ├──────────▶│   ateapi   │  Substrate control plane
    │ CLI ├─────▶│ Sandbox │           └────────────┘
-   └─────┘      │   API   │           ┌────────────┐      ┌──────────────────────┐
-                │         ├──────────▶│   atenet   ├─────▶│ actor                │
-                └─────────┘  cmd/fs   │   router   │      │  └ substrate-guestd  │
-                                      └────────────┘      │     /v1/cmd          │
-                                                          │     /v1/fs/*         │
-                                                          └──────────────────────┘
+   └─────┘      │   API   │           ┌────────────┐      ┌────────────────────────┐
+                │         ├──────────▶│   atenet   ├─────▶│ actor                  │
+                └─────────┘  cmd/fs   │   router   │      │  └ substrate-guest-api │
+                                      └────────────┘      │     /v1/cmd            │
+                                                          │     /v1/fs/*           │
+                                                          └────────────────────────┘
 ```
 
 - **`sandbox/`** — the Go SDK, a client of the REST API. Allows creation, suspension,
@@ -33,7 +33,7 @@ commands on the sandboxes.
   [ts/README.md](ts/README.md)).
 - **`cmd/substrate-sandbox-api`** — the REST service. It bridges clients to
   the Substrate control plane and router.
-- **`cmd/substrate-guestd`** — the daemon server available in the sandbox. It runs
+- **`cmd/substrate-guest-api`** — the daemon server available in the sandbox. It runs
   inside every actor and serves command executions and filesystem operations.
 
 ## Installation

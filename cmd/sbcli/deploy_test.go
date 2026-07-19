@@ -18,14 +18,14 @@ func testDeployConfig() deployConfig {
 		namespace:       "substrate-sandbox",
 		template:        "sandbox",
 		workerPool:      "sandbox-workerpool",
-		guestdImage:     "example.com/guestd@sha256:aaaa",
+		guestAPIImage:   "example.com/guest-api@sha256:aaaa",
 		ateomImage:      "example.com/ateom@sha256:bbbb",
 		apiImage:        "example.com/api@sha256:cccc",
 		pauseImage:      defaultPauseImage,
 		snapshotsBucket: "gs://bucket/substrate-sandbox/",
 		replicas:        3,
 		apiReplicas:     1,
-		guestdCommand:   []string{"/ko-app/substrate-guestd", "-workdir", "/workspace"},
+		guestAPICommand: []string{"/ko-app/substrate-guest-api", "-workdir", "/workspace"},
 		poolLabels:      map[string]string{"workload": "sandbox"},
 	}
 }
@@ -81,9 +81,9 @@ func TestRunDeployCreatesResources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("actortemplate not created: %v", err)
 	}
-	if len(template.Spec.Containers) != 1 || template.Spec.Containers[0].Image != cfg.guestdImage {
-		t.Errorf("template containers = %+v, want one guestd container with image %q",
-			template.Spec.Containers, cfg.guestdImage)
+	if len(template.Spec.Containers) != 1 || template.Spec.Containers[0].Image != cfg.guestAPIImage {
+		t.Errorf("template containers = %+v, want one guest-api container with image %q",
+			template.Spec.Containers, cfg.guestAPIImage)
 	}
 	if template.Spec.SnapshotsConfig.Location != cfg.snapshotsBucket {
 		t.Errorf("snapshots location = %q, want %q", template.Spec.SnapshotsConfig.Location, cfg.snapshotsBucket)
@@ -132,7 +132,7 @@ func TestRunDeployIsIdempotent(t *testing.T) {
 
 	// A second deploy with changed settings updates in place.
 	cfg.replicas = 5
-	cfg.guestdImage = "example.com/guestd@sha256:cccc"
+	cfg.guestAPIImage = "example.com/guest-api@sha256:cccc"
 	if err := runDeploy(context.Background(), quietCommand(), kube, ate, cfg); err != nil {
 		t.Fatalf("second deploy: %v", err)
 	}
@@ -148,8 +148,8 @@ func TestRunDeployIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if template.Spec.Containers[0].Image != "example.com/guestd@sha256:cccc" {
-		t.Errorf("guestd image after re-deploy = %q, want the updated digest", template.Spec.Containers[0].Image)
+	if template.Spec.Containers[0].Image != "example.com/guest-api@sha256:cccc" {
+		t.Errorf("guest-api image after re-deploy = %q, want the updated digest", template.Spec.Containers[0].Image)
 	}
 }
 

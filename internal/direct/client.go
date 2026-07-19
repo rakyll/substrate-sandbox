@@ -3,7 +3,7 @@
 // Sandbox wraps a Substrate actor: it can be created, suspended (full
 // snapshot to object storage), resumed, and deleted, and while running it
 // accepts remote command execution and filesystem operations served by the
-// substrate-guestd daemon inside the actor.
+// substrate-guest-api daemon inside the actor.
 //
 // Lifecycle operations go to the ateapi gRPC control plane; command and
 // filesystem operations go through the atenet HTTP router, which routes

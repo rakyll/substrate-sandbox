@@ -7,4 +7,4 @@ defaultPlatforms:
   - linux/arm64
 
 baseImageOverrides:
-  github.com/rakyll/substrate-sandbox/cmd/substrate-guestd: alpine
+  github.com/rakyll/substrate-sandbox/cmd/substrate-guest-api: alpine

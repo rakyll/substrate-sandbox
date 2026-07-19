@@ -37,14 +37,14 @@ type deployConfig struct {
 	namespace       string
 	template        string
 	workerPool      string
-	guestdImage     string
+	guestAPIImage   string
 	ateomImage      string
 	pauseImage      string
 	snapshotsBucket string
 	replicas        int32
 	apiImage        string
 	apiReplicas     int32
-	guestdCommand   []string
+	guestAPICommand []string
 	waitForReady    time.Duration
 	poolLabels      map[string]string
 	kubeconfig      string
@@ -74,7 +74,7 @@ push them with ko:
 
   export KO_DOCKER_REPO=gcr.io/<your-project>
   sbcli deploy \
-    --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
+    --guest-api-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guest-api) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     --snapshots-bucket gs://<bucket>/substrate-sandbox/ \
     --template sandbox --namespace substrate-sandbox`,
@@ -101,7 +101,7 @@ push them with ko:
 		},
 	}
 
-	cmd.Flags().StringVar(&cfg.guestdImage, "guestd-image", defaultGuestdImage, "digest-pinned substrate-guestd image (repo@sha256:...)")
+	cmd.Flags().StringVar(&cfg.guestAPIImage, "guest-api-image", defaultGuestAPIImage, "digest-pinned substrate-guest-api image (repo@sha256:...)")
 	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", defaultAteomImage, "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
 	cmd.Flags().StringVar(&cfg.snapshotsBucket, "snapshots-bucket", "", "object-storage bucket (with optional prefix) for suspend snapshots, e.g. gs://bucket/prefix/")
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
@@ -109,7 +109,7 @@ push them with ko:
 	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of REST service replicas")
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
 	cmd.Flags().Int32Var(&cfg.replicas, "replicas", 2, "number of pre-warmed worker pods")
-	cmd.Flags().StringSliceVar(&cfg.guestdCommand, "guestd-command", []string{"/ko-app/substrate-guestd", "-workdir", "/workspace"}, "guestd container entrypoint")
+	cmd.Flags().StringSliceVar(&cfg.guestAPICommand, "guest-api-command", []string{"/ko-app/substrate-guest-api", "-workdir", "/workspace"}, "guest-api container entrypoint")
 	cmd.Flags().DurationVar(&cfg.waitForReady, "wait", 5*time.Minute, "how long to wait for the ActorTemplate to become Ready (0 to skip)")
 	cmd.Flags().StringVar(&cfg.kubeconfig, "kubeconfig", "", "path to the kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)")
 	cmd.Flags().StringVar(&cfg.kubeContext, "kube-context", "", "kubeconfig context to use")
@@ -121,7 +121,7 @@ push them with ko:
 // resolveImages verifies that all deployment images are set, either baked
 // in at release time or passed as flags.
 func (c *deployConfig) resolveImages() error {
-	if c.guestdImage != "" && c.ateomImage != "" && c.apiImage != "" {
+	if c.guestAPIImage != "" && c.ateomImage != "" && c.apiImage != "" {
 		return nil
 	}
 	return errors.New(`no default images are baked into this build of sbcli (they are set when
@@ -129,7 +129,7 @@ sbcli is built by a release); pass the images explicitly:
 
   export KO_DOCKER_REPO=<your-registry>
   sbcli deploy \
-    --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
+    --guest-api-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guest-api) \
     --api-image    $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-api) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     ...`)
@@ -245,9 +245,9 @@ func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg dep
 				MatchLabels: cfg.poolLabels,
 			},
 			Containers: []atev1alpha1.Container{{
-				Name:    "guestd",
-				Image:   cfg.guestdImage,
-				Command: cfg.guestdCommand,
+				Name:    "guest-api",
+				Image:   cfg.guestAPIImage,
+				Command: cfg.guestAPICommand,
 				Env: []atev1alpha1.EnvVar{{
 					Name:  "PORT",
 					Value: &port,
