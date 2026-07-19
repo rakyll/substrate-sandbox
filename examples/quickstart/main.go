@@ -22,7 +22,8 @@ func main() {
 	client, err := sandbox.New(sandbox.Options{
 		ControlAddr: "localhost:8080",
 		RouterAddr:  "localhost:8000",
-		Template:    "substrate-sandbox/sandbox",
+		Template:    "sandbox",
+		Namespace:   "substrate-sandbox",
 		SkipVerify:  true, // ateapi serves with pod certificates
 		AutoResume:  true,
 	})

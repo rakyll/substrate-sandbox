@@ -37,7 +37,6 @@ func newAPI(t *testing.T) (*httptest.Server, *fakerouter.Router) {
 	client, err := sandbox.New(sandbox.Options{
 		ControlAddr: controlAddr,
 		RouterAddr:  routerAddr,
-		Template:    "sandboxes/default",
 		SkipVerify:  true,
 		AutoResume:  true,
 	})
@@ -79,7 +78,7 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	router.Register("web-1", (&guest.Server{Workdir: t.TempDir()}).Handler())
 
 	// Create.
-	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"web-1","template":"sandboxes/default"}`)
+	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"web-1","template":"default","namespace":"sandboxes"}`)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create status = %d, want 201", resp.StatusCode)
 	}
@@ -140,13 +139,13 @@ func TestCreateStartDefaults(t *testing.T) {
 	router.Register("started", (&guest.Server{Workdir: t.TempDir()}).Handler())
 
 	// Omitting "start" starts the sandbox.
-	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"started","template":"sandboxes/default"}`)
+	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"started","template":"default","namespace":"sandboxes"}`)
 	if got := decode[service.SandboxInfo](t, resp); got.Status != "running" {
 		t.Errorf("create without start = %+v, want running", got)
 	}
 
 	// An explicit "start": false registers the sandbox without starting it.
-	resp = do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"cold","template":"sandboxes/default","start":false}`)
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"cold","template":"default","namespace":"sandboxes","start":false}`)
 	if got := decode[service.SandboxInfo](t, resp); got.Status != "suspended" {
 		t.Errorf("create with start=false = %+v, want suspended", got)
 	}

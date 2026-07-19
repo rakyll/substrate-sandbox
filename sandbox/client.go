@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"google.golang.org/grpc"
@@ -46,9 +45,12 @@ type Options struct {
 	// DefaultHostSuffix.
 	HostSuffix string
 
-	// Template is the default ActorTemplate for Create, as
-	// "namespace/name".
+	// Template is the name of the default ActorTemplate for Create.
 	Template string
+
+	// Namespace is the Kubernetes namespace the ActorTemplates live in.
+	// Defaults to "default".
+	Namespace string
 
 	// Atespace is the Substrate atespace sandboxes live in. Empty means
 	// the global scope.
@@ -120,35 +122,44 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-func (c *Client) templateRef(override string) (namespace, name string, err error) {
-	t := override
-	if t == "" {
-		t = c.opts.Template
+func (c *Client) templateRef(overrideNamespace, overrideName string) (namespace, name string, err error) {
+	name = overrideName
+	if name == "" {
+		name = c.opts.Template
 	}
-	if t == "" {
+	if name == "" {
 		return "", "", errors.New("sandbox: no ActorTemplate specified (set Options.Template or WithTemplate)")
 	}
-	parts := strings.SplitN(t, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", fmt.Errorf("sandbox: invalid template %q, want \"namespace/name\"", t)
+	namespace = overrideNamespace
+	if namespace == "" {
+		namespace = c.opts.Namespace
 	}
-	return parts[0], parts[1], nil
+	if namespace == "" {
+		namespace = "default"
+	}
+	return namespace, name, nil
 }
 
 // CreateOption customizes Create.
 type CreateOption func(*createConfig)
 
 type createConfig struct {
-	template       string
-	workerSelector map[string]string
-	noStart        bool
-	boot           bool
+	template          string
+	templateNamespace string
+	workerSelector    map[string]string
+	noStart           bool
+	boot              bool
 }
 
-// WithTemplate overrides the client's default ActorTemplate, as
-// "namespace/name".
-func WithTemplate(namespaceName string) CreateOption {
-	return func(c *createConfig) { c.template = namespaceName }
+// WithTemplate overrides the client's default ActorTemplate name.
+func WithTemplate(name string) CreateOption {
+	return func(c *createConfig) { c.template = name }
+}
+
+// WithNamespace overrides the Kubernetes namespace the ActorTemplate is
+// looked up in.
+func WithNamespace(namespace string) CreateOption {
+	return func(c *createConfig) { c.templateNamespace = namespace }
 }
 
 // WithWorkerSelector constrains which worker pools can host the sandbox.
@@ -176,7 +187,7 @@ func (c *Client) Create(ctx context.Context, id string, opts ...CreateOption) (*
 	for _, o := range opts {
 		o(&cfg)
 	}
-	namespace, name, err := c.templateRef(cfg.template)
+	namespace, name, err := c.templateRef(cfg.templateNamespace, cfg.template)
 	if err != nil {
 		return nil, err
 	}

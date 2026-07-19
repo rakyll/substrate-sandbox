@@ -50,7 +50,7 @@ kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 # 3. Install and use the CLI (installs to $GOBIN, or $GOPATH/bin).
 go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
 
-sbcli create sandbox-dev --template substrate-sandbox/sandbox
+sbcli create sandbox-dev --template sandbox --namespace substrate-sandbox
 sbcli exec sandbox-dev 'echo hello > /workspace/note.txt'
 sbcli suspend sandbox-dev          # snapshot + free the worker
 sbcli exec sandbox-dev 'cat /workspace/note.txt'   # auto-resumes; prints hello
@@ -64,7 +64,7 @@ go install github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd@latest
 
 substrate-sandboxd
 curl -X POST localhost:8081/v1/sandboxes \
-     -d '{"id":"sandbox-dev","template":"substrate-sandbox/sandbox"}'
+     -d '{"id":"sandbox-dev","template":"sandbox","namespace":"substrate-sandbox"}'
 curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/exec \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
@@ -75,7 +75,8 @@ curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/exec \
 client, err := sandbox.New(sandbox.Options{
     ControlAddr: "localhost:8080",              // ateapi gRPC
     RouterAddr:  "localhost:8000",              // atenet router
-    Template:    "substrate-sandbox/sandbox",   // ActorTemplate atespace/name
+    Template:    "sandbox",                     // ActorTemplate name
+    Namespace:   "substrate-sandbox",           // its Kubernetes namespace
     SkipVerify:  true,                          // ateapi uses pod certs
     AutoResume:  true,                          // wake sandboxes on use
 })
@@ -101,7 +102,7 @@ file operations transparently resume a suspended sandbox and retry.
 
 | Method & path                        | Description                              |
 | ------------------------------------ | ---------------------------------------- |
-| `POST /v1/sandboxes`                 | create (`{"id", "template", "start"?}`)  |
+| `POST /v1/sandboxes`                 | create (`{"id", "template", "namespace"?, "start"?}`) |
 | `GET /v1/sandboxes`                  | list                                     |
 | `GET /v1/sandboxes/{id}`             | status                                   |
 | `DELETE /v1/sandboxes/{id}`          | delete                                   |

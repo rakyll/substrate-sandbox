@@ -21,9 +21,13 @@ type CreateSandboxRequest struct {
 	// ID is the sandbox identifier (a DNS-1123 label). Required.
 	ID string `json:"id"`
 
-	// Template is the ActorTemplate the sandbox is created from, as
-	// "namespace/name". Required.
+	// Template is the name of the ActorTemplate the sandbox is created
+	// from. Required.
 	Template string `json:"template"`
+
+	// Namespace is the Kubernetes namespace the ActorTemplate lives in.
+	// Defaults to "default".
+	Namespace string `json:"namespace,omitempty"`
 
 	// WorkerSelector constrains which worker pools can host the sandbox.
 	WorkerSelector map[string]string `json:"workerSelector,omitempty"`
@@ -116,6 +120,9 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	opts := []sandbox.CreateOption{sandbox.WithTemplate(req.Template)}
+	if req.Namespace != "" {
+		opts = append(opts, sandbox.WithNamespace(req.Namespace))
+	}
 	if len(req.WorkerSelector) > 0 {
 		opts = append(opts, sandbox.WithWorkerSelector(req.WorkerSelector))
 	}

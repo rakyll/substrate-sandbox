@@ -27,6 +27,7 @@ func main() {
 		ateapi     string
 		atenet     string
 		template   string
+		namespace  string
 		skipVerify bool
 
 		client *sandbox.Client
@@ -43,6 +44,7 @@ func main() {
 				ControlAddr: ateapi,
 				RouterAddr:  atenet,
 				Template:    template,
+				Namespace:   namespace,
 				SkipVerify:  skipVerify,
 				AutoResume:  true,
 			})
@@ -56,7 +58,8 @@ func main() {
 	}
 	root.PersistentFlags().StringVar(&ateapi, "ateapi", envOr("SBCLI_ATEAPI", "localhost:8080"), "address of the ateapi gRPC control plane")
 	root.PersistentFlags().StringVar(&atenet, "atenet", envOr("SBCLI_ATENET", "localhost:8000"), "address of the atenet HTTP router")
-	root.PersistentFlags().StringVar(&template, "template", "", "ActorTemplate as namespace/name (for create)")
+	root.PersistentFlags().StringVar(&template, "template", "", "ActorTemplate name (for create)")
+	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
 	root.PersistentFlags().BoolVar(&skipVerify, "skip-verify", true, "skip TLS certificate verification on the control plane connection")
 
 	root.AddCommand(&cobra.Command{

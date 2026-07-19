@@ -39,9 +39,10 @@ func newFixture(t *testing.T, autoResume bool) *fixture {
 	guestDir := t.TempDir()
 
 	client, err := sandbox.New(sandbox.Options{
-		ControlAddr: controlAddr,
-		RouterAddr:  routerAddr,
-		Template:    "sandboxes/default",
+		ControlAddr:       controlAddr,
+		RouterAddr:        routerAddr,
+		Template:    "default",
+		Namespace:   "sandboxes",
 		SkipVerify:  true,
 		AutoResume:  autoResume,
 	})
@@ -280,8 +281,5 @@ func TestCreateRequiresTemplate(t *testing.T) {
 
 	if _, err := client.Create(context.Background(), "sb-x"); err == nil {
 		t.Fatal("Create without template succeeded, want error")
-	}
-	if _, err := client.Create(context.Background(), "sb-x", sandbox.WithTemplate("not-a-ref")); err == nil {
-		t.Fatal("Create with malformed template succeeded, want error")
 	}
 }
