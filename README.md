@@ -27,10 +27,10 @@ while this project adds the sandbox-shaped API on top.
 
 - **`sandbox/`** — the SDK. `Create`, `Open`, `List`, and per-sandbox
   `Suspend`, `Pause`, `Resume`, `Delete`, `Cmd`, `ReadFile`, `WriteFile`,
-  `ListDir`, `Stat`, `Mkdir`, `Remove`.
-- **`cmd/substrate-guestd`** — the daemon baked into the sandbox image. Runs
-  inside every actor and serves exec + filesystem endpoints.
+  `ListDir`, `Stat`, `Mkdir`, `Remove` per actor.
 - **`cmd/substrate-sandboxd`** — a REST service exposing the API.
+- **`cmd/substrate-guestd`** — the daemon baked into the sandbox. It runs
+  inside every actor and serves command executions and filesystem operations.
 
 ## Installation
 
