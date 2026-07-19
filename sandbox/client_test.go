@@ -208,7 +208,7 @@ func TestExecAndFilesystem(t *testing.T) {
 		t.Errorf("stat = %+v, want directory", entry)
 	}
 
-	if err := sb.Remove(ctx, "project", true); err != nil {
+	if err := sb.Remove(ctx, "project"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := sb.Stat(ctx, "project"); !errors.Is(err, sandbox.ErrNotFound) {

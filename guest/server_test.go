@@ -254,7 +254,7 @@ func TestMkdirAndDelete(t *testing.T) {
 		t.Fatalf("nested dir not created: %v", err)
 	}
 
-	// Non-recursive delete of a non-empty tree fails; recursive succeeds.
+	// Delete removes the whole tree.
 	root := filepath.Join(dir, "x")
 	req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/v1/fs/file?path="+url.QueryEscape(root), nil)
 	resp, err = client.Do(req)
@@ -262,21 +262,11 @@ func TestMkdirAndDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode == http.StatusNoContent {
-		t.Fatal("non-recursive delete of non-empty dir unexpectedly succeeded")
-	}
-
-	req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/v1/fs/file?path="+url.QueryEscape(root)+"&recursive=true", nil)
-	resp, err = client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		t.Fatalf("recursive delete status = %d, want 204", resp.StatusCode)
+		t.Fatalf("delete status = %d, want 204", resp.StatusCode)
 	}
 	if _, err := os.Stat(root); !os.IsNotExist(err) {
-		t.Errorf("directory still exists after recursive delete")
+		t.Errorf("directory still exists after delete")
 	}
 }
 

@@ -229,7 +229,7 @@ func main() {
 		Short: "Delete a file or directory tree in the sandbox",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return client.Sandbox(args[0]).Remove(cmd.Context(), args[1], true)
+			return client.Sandbox(args[0]).Remove(cmd.Context(), args[1])
 		},
 	})
 

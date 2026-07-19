@@ -299,8 +299,7 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	path, err := s.resolvePath(q.Get("path"))
+	path, err := s.resolvePath(r.URL.Query().Get("path"))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "%v", err)
 		return
@@ -313,12 +312,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		writeFSError(w, err)
 		return
 	}
-	if q.Get("recursive") == "true" {
-		err = os.RemoveAll(path)
-	} else {
-		err = os.Remove(path)
-	}
-	if err != nil {
+	if err := os.RemoveAll(path); err != nil {
 		writeFSError(w, err)
 		return
 	}

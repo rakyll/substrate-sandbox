@@ -121,12 +121,9 @@ func (s *Sandbox) Mkdir(ctx context.Context, path string, mode fs.FileMode) erro
 	return nil
 }
 
-// Remove deletes the file or (if recursive) directory tree at path.
-func (s *Sandbox) Remove(ctx context.Context, path string, recursive bool) error {
+// Remove deletes the file or directory tree at path.
+func (s *Sandbox) Remove(ctx context.Context, path string) error {
 	q := url.Values{"path": {path}}
-	if recursive {
-		q.Set("recursive", "true")
-	}
 	resp, err := s.guestDo(ctx, http.MethodDelete, "/v1/fs/file", q, "", nil)
 	if err != nil {
 		return err

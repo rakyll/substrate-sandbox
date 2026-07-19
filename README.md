@@ -118,7 +118,7 @@ file operations transparently resume a suspended sandbox and retry.
 | `POST /v1/sandboxes/{id}/exec`       | run a command (`api.ExecRequest`)        |
 | `GET /v1/sandboxes/{id}/files?path=` | read file (raw bytes)                    |
 | `PUT /v1/sandboxes/{id}/files?path=&mode=` | write file (raw body)              |
-| `DELETE /v1/sandboxes/{id}/files?path=&recursive=` | delete path                |
+| `DELETE /v1/sandboxes/{id}/files?path=` | delete file or directory tree        |
 | `GET /v1/sandboxes/{id}/dir?path=`   | list directory                           |
 | `POST /v1/sandboxes/{id}/dir?path=`  | mkdir -p                                 |
 | `GET /v1/sandboxes/{id}/stat?path=`  | stat                                     |

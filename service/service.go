@@ -226,8 +226,7 @@ func (s *server) writeFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) deleteFile(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	err := s.client.Sandbox(r.PathValue("id")).Remove(r.Context(), q.Get("path"), q.Get("recursive") == "true")
+	err := s.client.Sandbox(r.PathValue("id")).Remove(r.Context(), r.URL.Query().Get("path"))
 	if err != nil {
 		writeErr(w, err)
 		return
