@@ -137,10 +137,10 @@ Create body:
 
 ```json
 {
-  "id": "sandbox-dev",              // required, DNS-1123 label
-  "template": "sandbox",            // required, ActorTemplate name
-  "namespace": "substrate-sandbox", // optional, defaults to "default"
-  "start": true                     // optional, defaults to true
+  "id": "sandbox-dev",
+  "template": "sandbox",
+  "namespace": "substrate-sandbox",
+  "start": true
 }
 ```
 
@@ -159,7 +159,6 @@ Each returns the sandbox's new status: `{"id": "...", "status": "suspended", ...
 `POST /v1/sandboxes/{id}/exec`
 
 ```json
-// request                                  // response
 {                                           {
   "command": ["sh", "-c", "make test"],       "stdout": "ok\n",
   "cwd": "/workspace/app",                    "stderr": "",
