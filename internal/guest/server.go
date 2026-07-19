@@ -50,7 +50,7 @@ func (s *Server) Handler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, "ok")
 	})
-	mux.HandleFunc("POST /v1/exec", s.handleExec)
+	mux.HandleFunc("POST /v1/cmd", s.handleCmd)
 	mux.HandleFunc("GET /v1/fs/file", s.handleReadFile)
 	mux.HandleFunc("PUT /v1/fs/file", s.handleWriteFile)
 	mux.HandleFunc("DELETE /v1/fs/file", s.handleDelete)
@@ -134,8 +134,8 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
-	var req api.ExecRequest
+func (s *Server) handleCmd(w http.ResponseWriter, r *http.Request) {
+	var req api.CmdRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "invalid request body: %v", err)
 		return
@@ -198,7 +198,7 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 	err := cmd.Run()
 	elapsed := time.Since(start)
 
-	res := api.ExecResult{
+	res := api.CmdResult{
 		Stdout:          stdout.buf.String(),
 		Stderr:          stderr.buf.String(),
 		StdoutTruncated: stdout.truncated,

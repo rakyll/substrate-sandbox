@@ -15,38 +15,38 @@ import (
 	"github.com/rakyll/substrate-sandbox/internal/api"
 )
 
-// ExecRequest describes a command to run inside a sandbox.
-type ExecRequest = api.ExecRequest
+// CmdRequest describes a command to run inside a sandbox.
+type CmdRequest = api.CmdRequest
 
-// ExecResult is the outcome of an ExecRequest.
-type ExecResult = api.ExecResult
+// CmdResult is the outcome of a CmdRequest.
+type CmdResult = api.CmdResult
 
 // DirEntry describes a file or directory inside a sandbox.
 type DirEntry = api.DirEntry
 
-// Exec runs a command inside the sandbox and returns its captured output
+// Cmd runs a command inside the sandbox and returns its captured output
 // and exit code. The command is executed directly (not through a shell);
 // see Command for a shell-friendly shorthand.
-func (s *Sandbox) Exec(ctx context.Context, req ExecRequest) (*ExecResult, error) {
+func (s *Sandbox) Cmd(ctx context.Context, req CmdRequest) (*CmdResult, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("sandbox: encoding exec request: %w", err)
+		return nil, fmt.Errorf("sandbox: encoding command request: %w", err)
 	}
-	resp, err := s.guestDo(ctx, http.MethodPost, "/v1/exec", nil, "application/json", bytes.NewReader(body))
+	resp, err := s.guestDo(ctx, http.MethodPost, "/v1/cmd", nil, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	var res ExecResult
+	var res CmdResult
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return nil, fmt.Errorf("sandbox: decoding exec response: %w", err)
+		return nil, fmt.Errorf("sandbox: decoding command response: %w", err)
 	}
 	return &res, nil
 }
 
 // Command runs a shell command line ("sh -c") inside the sandbox.
-func (s *Sandbox) Command(ctx context.Context, commandLine string) (*ExecResult, error) {
-	return s.Exec(ctx, ExecRequest{Command: []string{"sh", "-c", commandLine}})
+func (s *Sandbox) Command(ctx context.Context, commandLine string) (*CmdResult, error) {
+	return s.Cmd(ctx, CmdRequest{Command: []string{"sh", "-c", commandLine}})
 }
 
 // ReadFile returns the contents of the file at path inside the sandbox.
@@ -138,7 +138,7 @@ func (s *Sandbox) Remove(ctx context.Context, path string) error {
 // sandbox is resumed and the request retried once.
 func (s *Sandbox) guestDo(ctx context.Context, method, path string, query url.Values, contentType string, body io.ReadSeeker) (*http.Response, error) {
 	if s.client.opts.RouterAddr == "" {
-		return nil, errors.New("sandbox: Options.RouterAddr is required for exec and filesystem operations")
+		return nil, errors.New("sandbox: Options.RouterAddr is required for command and filesystem operations")
 	}
 
 	resp, err := s.guestDoOnce(ctx, method, path, query, contentType, body)

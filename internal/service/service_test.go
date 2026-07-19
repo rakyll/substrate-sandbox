@@ -94,13 +94,13 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	}
 
 	// Exec.
-	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/exec", `{"command":["sh","-c","cat app/main.txt"]}`)
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/cmd", `{"command":["sh","-c","cat app/main.txt"]}`)
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("exec status = %d, want 200", resp.StatusCode)
+		t.Fatalf("cmd status = %d, want 200", resp.StatusCode)
 	}
-	res := decode[api.ExecResult](t, resp)
+	res := decode[api.CmdResult](t, resp)
 	if res.Stdout != "file body" || res.ExitCode != 0 {
-		t.Fatalf("exec result = %+v, want stdout %q", res, "file body")
+		t.Fatalf("cmd result = %+v, want stdout %q", res, "file body")
 	}
 
 	// Suspend, then exec again: auto-resume kicks in.
@@ -108,12 +108,12 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	if got := decode[service.SandboxInfo](t, resp); got.Status != "suspended" {
 		t.Fatalf("after suspend = %+v, want suspended", got)
 	}
-	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/exec", `{"command":["sh","-c","echo back"]}`)
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/cmd", `{"command":["sh","-c","echo back"]}`)
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("exec after suspend status = %d, want 200", resp.StatusCode)
+		t.Fatalf("cmd after suspend status = %d, want 200", resp.StatusCode)
 	}
-	if res := decode[api.ExecResult](t, resp); res.Stdout != "back\n" {
-		t.Fatalf("exec after suspend = %+v, want stdout %q", res, "back\n")
+	if res := decode[api.CmdResult](t, resp); res.Stdout != "back\n" {
+		t.Fatalf("cmd after suspend = %+v, want stdout %q", res, "back\n")
 	}
 
 	// List directory.

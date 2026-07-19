@@ -5,8 +5,8 @@ package api
 
 import "time"
 
-// ExecRequest describes a command to run inside a sandbox.
-type ExecRequest struct {
+// CmdRequest describes a command to run inside a sandbox.
+type CmdRequest struct {
 	// Command is the argv of the process to run. It is executed directly,
 	// not through a shell. Use []string{"sh", "-c", "..."} for shell syntax.
 	Command []string `json:"command"`
@@ -29,8 +29,8 @@ type ExecRequest struct {
 	Timeout string `json:"timeout,omitempty"`
 }
 
-// ExecResult is the outcome of an ExecRequest.
-type ExecResult struct {
+// CmdResult is the outcome of an CmdRequest.
+type CmdResult struct {
 	// Stdout and Stderr hold the captured output, capped at the guest's
 	// output limit per stream.
 	Stdout string `json:"stdout"`

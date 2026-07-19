@@ -24,10 +24,10 @@ func newTestServer(t *testing.T) (*httptest.Server, string) {
 	return srv, dir
 }
 
-func doExec(t *testing.T, srv *httptest.Server, req api.ExecRequest) api.ExecResult {
+func doExec(t *testing.T, srv *httptest.Server, req api.CmdRequest) api.CmdResult {
 	t.Helper()
 	body, _ := json.Marshal(req)
-	resp, err := http.Post(srv.URL+"/v1/exec", "application/json", bytes.NewReader(body))
+	resp, err := http.Post(srv.URL+"/v1/cmd", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("exec request failed: %v", err)
 	}
@@ -36,7 +36,7 @@ func doExec(t *testing.T, srv *httptest.Server, req api.ExecRequest) api.ExecRes
 		payload, _ := io.ReadAll(resp.Body)
 		t.Fatalf("exec returned %d: %s", resp.StatusCode, payload)
 	}
-	var res api.ExecResult
+	var res api.CmdResult
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		t.Fatalf("decoding exec result: %v", err)
 	}
@@ -46,7 +46,7 @@ func doExec(t *testing.T, srv *httptest.Server, req api.ExecRequest) api.ExecRes
 func TestExecCapturesOutputAndExitCode(t *testing.T) {
 	srv, _ := newTestServer(t)
 
-	res := doExec(t, srv, api.ExecRequest{Command: []string{"sh", "-c", "echo out; echo err >&2; exit 3"}})
+	res := doExec(t, srv, api.CmdRequest{Command: []string{"sh", "-c", "echo out; echo err >&2; exit 3"}})
 	if res.Stdout != "out\n" {
 		t.Errorf("stdout = %q, want %q", res.Stdout, "out\n")
 	}
@@ -63,7 +63,7 @@ func TestExecEnvCwdStdin(t *testing.T) {
 	sub := filepath.Join(dir, "sub")
 	os.Mkdir(sub, 0o755)
 
-	res := doExec(t, srv, api.ExecRequest{
+	res := doExec(t, srv, api.CmdRequest{
 		Command: []string{"sh", "-c", "pwd; printf '%s\n' \"$GREETING\"; cat"},
 		Env:     map[string]string{"GREETING": "hello"},
 		Cwd:     "sub",
@@ -83,7 +83,7 @@ func TestExecTimeout(t *testing.T) {
 	srv, _ := newTestServer(t)
 
 	start := time.Now()
-	res := doExec(t, srv, api.ExecRequest{
+	res := doExec(t, srv, api.CmdRequest{
 		Command: []string{"sh", "-c", "sleep 10"},
 		Timeout: "200ms",
 	})
@@ -103,7 +103,7 @@ func TestExecOutputTruncation(t *testing.T) {
 	srv := httptest.NewServer((&Server{Workdir: dir, MaxOutputBytes: 10}).Handler())
 	defer srv.Close()
 
-	res := doExec(t, srv, api.ExecRequest{Command: []string{"sh", "-c", "printf '0123456789ABCDEF'"}})
+	res := doExec(t, srv, api.CmdRequest{Command: []string{"sh", "-c", "printf '0123456789ABCDEF'"}})
 	if res.Stdout != "0123456789" {
 		t.Errorf("stdout = %q, want first 10 bytes", res.Stdout)
 	}
@@ -114,8 +114,8 @@ func TestExecOutputTruncation(t *testing.T) {
 
 func TestExecCommandNotFound(t *testing.T) {
 	srv, _ := newTestServer(t)
-	body, _ := json.Marshal(api.ExecRequest{Command: []string{"definitely-not-a-command-xyz"}})
-	resp, err := http.Post(srv.URL+"/v1/exec", "application/json", bytes.NewReader(body))
+	body, _ := json.Marshal(api.CmdRequest{Command: []string{"definitely-not-a-command-xyz"}})
+	resp, err := http.Post(srv.URL+"/v1/cmd", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}

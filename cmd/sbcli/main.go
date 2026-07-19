@@ -156,7 +156,7 @@ func main() {
 	})
 
 	root.AddCommand(&cobra.Command{
-		Use:   "exec <id> <cmdline>",
+		Use:   "cmd <id> <cmdline>",
 		Short: "Run a shell command line in the sandbox",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

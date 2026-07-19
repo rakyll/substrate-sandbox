@@ -66,7 +66,7 @@ func Handler(client *sandbox.Client) http.Handler {
 	mux.HandleFunc("POST /v1/sandboxes/{id}/suspend", s.lifecycle((*sandbox.Sandbox).Suspend))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/pause", s.lifecycle((*sandbox.Sandbox).Pause))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/resume", s.lifecycle((*sandbox.Sandbox).Resume))
-	mux.HandleFunc("POST /v1/sandboxes/{id}/exec", s.exec)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/cmd", s.cmd)
 	mux.HandleFunc("GET /v1/sandboxes/{id}/files", s.readFile)
 	mux.HandleFunc("PUT /v1/sandboxes/{id}/files", s.writeFile)
 	mux.HandleFunc("DELETE /v1/sandboxes/{id}/files", s.deleteFile)
@@ -188,13 +188,13 @@ func (s *server) lifecycle(op func(*sandbox.Sandbox, context.Context) error) htt
 	}
 }
 
-func (s *server) exec(w http.ResponseWriter, r *http.Request) {
-	var req api.ExecRequest
+func (s *server) cmd(w http.ResponseWriter, r *http.Request) {
+	var req api.CmdRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid request body: %v", err)
 		return
 	}
-	res, err := s.client.Sandbox(r.PathValue("id")).Exec(r.Context(), req)
+	res, err := s.client.Sandbox(r.PathValue("id")).Cmd(r.Context(), req)
 	if err != nil {
 		writeErr(w, err)
 		return
