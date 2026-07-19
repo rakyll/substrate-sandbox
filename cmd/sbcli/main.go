@@ -1,8 +1,8 @@
 // Command sbcli is a CLI for the sandbox service. It talks directly to the
 // Substrate control plane and router using the sandbox SDK.
 //
-// Endpoints can be set with flags or the SBCLI_ATEAPI, SBCLI_ATENET, and
-// SBCLI_TEMPLATE environment variables.
+// Endpoints can be set with flags or the SBCLI_ATEAPI and SBCLI_ATENET
+// environment variables.
 package main
 
 import (
@@ -56,7 +56,7 @@ func main() {
 	}
 	root.PersistentFlags().StringVar(&ateapi, "ateapi", envOr("SBCLI_ATEAPI", "localhost:8080"), "address of the ateapi gRPC control plane")
 	root.PersistentFlags().StringVar(&atenet, "atenet", envOr("SBCLI_ATENET", "localhost:8000"), "address of the atenet HTTP router")
-	root.PersistentFlags().StringVar(&template, "template", os.Getenv("SBCLI_TEMPLATE"), "ActorTemplate as namespace/name (for create)")
+	root.PersistentFlags().StringVar(&template, "template", "", "ActorTemplate as namespace/name (for create)")
 	root.PersistentFlags().BoolVar(&skipVerify, "skip-verify", true, "skip TLS certificate verification on the control plane connection")
 
 	root.AddCommand(&cobra.Command{

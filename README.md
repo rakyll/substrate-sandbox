@@ -57,15 +57,14 @@ kubectl wait --for=condition=Ready actortemplate/sandbox -n substrate-sandbox --
 kubectl port-forward -n ate-system svc/ateapi 8080:443 &
 kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 
-# 3. Use the CLI.
-go build -o bin/sbcli ./cmd/sbcli
-export SBCLI_TEMPLATE=substrate-sandbox/sandbox
+# 3. Install and use the CLI (installs to $GOBIN, or $GOPATH/bin).
+go install ./cmd/sbcli
 
-bin/sbcli create dev-1
-bin/sbcli exec dev-1 'echo hello > /workspace/note.txt'
-bin/sbcli suspend dev-1          # snapshot + free the worker
-bin/sbcli exec dev-1 'cat /workspace/note.txt'   # auto-resumes; prints hello
-bin/sbcli rm dev-1
+sbcli create dev-1 --template substrate-sandbox/sandbox
+sbcli exec dev-1 'echo hello > /workspace/note.txt'
+sbcli suspend dev-1          # snapshot + free the worker
+sbcli exec dev-1 'cat /workspace/note.txt'   # auto-resumes; prints hello
+sbcli rm dev-1
 ```
 
 Or run the REST service:
@@ -125,21 +124,6 @@ file operations transparently resume a suspended sandbox and retry.
 | `GET /v1/sandboxes/{id}/stat?path=`  | stat                                     |
 
 Errors are `{"error": "...", "code": "not_found" | "invalid_argument" | ...}`.
-
-## Notes
-
-- Relative paths (in exec `cwd` and file operations) resolve against the
-  guest's workdir, `/workspace` in the shipped template.
-- Exec output is capped at 2 MiB per stream (`stdoutTruncated` /
-  `stderrTruncated` are set when hit); write large output to files and
-  fetch them instead.
-- This module pins Substrate to the local checkout at `../substrate` via a
-  `replace` directive, since Substrate's API is still churning; `make
-  deploy` also builds `ateom-gvisor` from that checkout through the ko
-  `ko://` reference.
-- Like the Substrate sandbox demo, there is **no authn/authz** on
-  `substrate-sandboxd` or the guest daemon — do not expose them to
-  untrusted networks.
 
 ## Development
 
