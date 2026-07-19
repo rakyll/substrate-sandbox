@@ -166,7 +166,7 @@ func TestList(t *testing.T) {
 	}
 }
 
-func TestExecAndFilesystem(t *testing.T) {
+func TestCmdAndFilesystem(t *testing.T) {
 	f := newFixture(t, false)
 	sb := f.create(t, "sb-fs")
 	ctx := t.Context()
@@ -217,7 +217,7 @@ func TestExecAndFilesystem(t *testing.T) {
 	}
 }
 
-func TestExecOnSuspendedSandboxFailsWithoutAutoResume(t *testing.T) {
+func TestCmdOnSuspendedSandboxFailsWithoutAutoResume(t *testing.T) {
 	f := newFixture(t, false)
 	sb := f.create(t, "sb-frozen")
 	ctx := t.Context()

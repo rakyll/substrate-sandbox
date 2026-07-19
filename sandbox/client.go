@@ -4,7 +4,7 @@
 // while running it accepts remote command execution and filesystem
 // operations served by the substrate-guestd daemon inside the actor.
 //
-// Lifecycle operations go to the ateapi gRPC control plane; exec and
+// Lifecycle operations go to the ateapi gRPC control plane; command and
 // filesystem operations go through the atenet HTTP router, which routes
 // requests by Host header to the actor's guest daemon.
 package sandbox
@@ -38,7 +38,7 @@ type Options struct {
 
 	// RouterAddr is the atenet HTTP router endpoint, e.g. "localhost:8000"
 	// (typically a port-forward of svc/atenet-router in ate-system).
-	// Required for Exec and filesystem operations.
+	// Required for Cmd and filesystem operations.
 	RouterAddr string
 
 	// HostSuffix overrides the router host suffix. Defaults to
@@ -69,7 +69,7 @@ type Options struct {
 	// HTTPClient overrides the HTTP client used for router traffic.
 	HTTPClient *http.Client
 
-	// AutoResume makes guest operations (Exec, file I/O) resume a
+	// AutoResume makes guest operations (Cmd, file I/O) resume a
 	// suspended or paused sandbox and retry once, instead of failing.
 	AutoResume bool
 }

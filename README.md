@@ -19,14 +19,14 @@ while this project adds the sandbox-shaped API on top.
    │ sbcli    │          └────────────┘
    │ sandboxd │          ┌────────────┐      ┌──────────────────────┐
    └──────────┘─────────▶│   atenet   ├─────▶│ actor                │
-                 exec/fs │   router   │      │  └ substrate-guestd  │
-       Host: <id>.actors.└────────────┘      │     /v1/exec         │
+                  cmd/fs │   router   │      │  └ substrate-guestd  │
+       Host: <id>.actors.└────────────┘      │     /v1/cmd          │
         resources.substrate.ate.dev          │     /v1/fs/*         │
                                              └──────────────────────┘
 ```
 
 - **`sandbox/`** — the SDK. `Create`, `Open`, `List`, and per-sandbox
-  `Suspend`, `Pause`, `Resume`, `Delete`, `Exec`, `ReadFile`, `WriteFile`,
+  `Suspend`, `Pause`, `Resume`, `Delete`, `Cmd`, `ReadFile`, `WriteFile`,
   `ListDir`, `Stat`, `Mkdir`, `Remove`.
 - **`cmd/substrate-guestd`** — the daemon baked into the sandbox image. Runs
   inside every actor and serves exec + filesystem endpoints.
@@ -62,9 +62,9 @@ kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 
 # 3. Create and use a sandbox.
 sbcli create sandbox-dev --template sandbox --namespace substrate-sandbox
-sbcli exec sandbox-dev 'echo hello > /workspace/note.txt'
+sbcli cmd sandbox-dev 'echo hello > /workspace/note.txt'
 sbcli suspend sandbox-dev          # snapshot + free the worker
-sbcli exec sandbox-dev 'cat /workspace/note.txt'   # auto-resumes; prints hello
+sbcli cmd sandbox-dev 'cat /workspace/note.txt'   # auto-resumes; prints hello
 sbcli rm sandbox-dev
 ```
 
@@ -74,7 +74,7 @@ Or run the REST service:
 substrate-sandboxd
 curl -X POST localhost:8081/v1/sandboxes \
      -d '{"id":"sandbox-dev","template":"sandbox","namespace":"substrate-sandbox"}'
-curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/exec \
+curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/cmd \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
 
@@ -116,8 +116,8 @@ See [examples/quickstart](examples/quickstart/main.go) for a complete
 program.
 
 `Suspend` writes the snapshot to object storage and survives node loss;
-`Pause` keeps it on the node for faster resume. With `AutoResume`, exec and
-file operations transparently resume a suspended sandbox and retry.
+`Pause` keeps it on the node for faster resume. With `AutoResume`, command
+and file operations transparently resume a suspended sandbox and retry.
 
 ## API
 
@@ -154,9 +154,9 @@ Create body:
 
 Each returns the sandbox's new status: `{"id": "...", "status": "suspended", ...}`.
 
-### Execution
+### Commands
 
-`POST /v1/sandboxes/{id}/exec`
+`POST /v1/sandboxes/{id}/cmd`
 
 ```json
 {                                           {

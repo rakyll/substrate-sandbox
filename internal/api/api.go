@@ -29,7 +29,7 @@ type CmdRequest struct {
 	Timeout string `json:"timeout,omitempty"`
 }
 
-// CmdResult is the outcome of an CmdRequest.
+// CmdResult is the outcome of a CmdRequest.
 type CmdResult struct {
 	// Stdout and Stderr hold the captured output, capped at the guest's
 	// output limit per stream.
