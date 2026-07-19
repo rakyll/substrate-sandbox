@@ -160,9 +160,9 @@ Create body (only `id` is required):
 ```json
 {
   "id": "sandbox-dev",
-  "template": "sandbox",  // defaults to "sandbox"
-  "namespace": "default", // defaults to "default"
-  "start": true           // defaults to true
+  "template": "sandbox",
+  "namespace": "default",
+  "start": true
 }
 ```
 
