@@ -213,6 +213,10 @@ report when the cap was hit, and `timedOut` reports a timeout kill.
 Relative paths resolve against the guest's workdir (`/workspace` in the
 shipped template). Writes create missing parent directories.
 
+### Built-in Tools
+
+TODO.
+
 ### Errors
 
 Non-2xx responses carry a JSON envelope:
