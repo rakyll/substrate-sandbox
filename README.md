@@ -15,22 +15,22 @@ while this project adds the sandbox-shaped API on top.
 ## Overview
 
 ```
-                 lifecycle (create/suspend/resume/delete)
-   ┌─────────────┐       ┌────────────┐
-   │ SDK         ├──────▶│   ateapi   │  Substrate control plane
-   │ CLI         │       └────────────┘
-   │ sandbox-api │       ┌────────────┐      ┌──────────────────────┐
-   └─────────────┘──────▶│   atenet   ├─────▶│ actor                │
-                  cmd/fs │   router   │      │  └ substrate-guestd  │
-                         └────────────┘      │     /v1/cmd          │
-Host:<id>.actors.resources.substrate.ate.dev │     /v1/fs/*         │
-                                             └──────────────────────┘
+   ┌─────┐      ┌─────────────┐ lifecycle ┌────────────┐
+   │ SDK │      │             ├──────────▶│   ateapi   │  Substrate control plane
+   │ CLI ├─────▶│   Sandbox   │           └────────────┘
+   └─────┘      │     API     │           ┌────────────┐      ┌──────────────────────┐
+                │             ├──────────▶│   atenet   ├─────▶│ actor                │
+                └─────────────┘  cmd/fs   │   router   │      │  └ substrate-guestd  │
+                                          └────────────┘      │     /v1/cmd          │
+                                                              │     /v1/fs/*         │
+                                                              └──────────────────────┘
 ```
 
-- **`sandbox/`** — the SDK. `Create`, `Open`, `List`, and per-sandbox
-  `Suspend`, `Pause`, `Resume`, `Delete`, `Cmd`, `ReadFile`, `WriteFile`,
-  `ListDir`, `Stat`, `Mkdir`, `Remove` per actor.
-- **`cmd/substrate-sandbox-api`** — a REST service exposing the API.
+- **`sandbox/`** — the Go SDK, a client of the REST API. `Create`, `Open`,
+  `List`, and per-sandbox `Suspend`, `Pause`, `Resume`, `Delete`, `Cmd`,
+  `ReadFile`, `WriteFile`, `ListDir`, `Stat`, `Mkdir`, `Remove` per actor.
+- **`cmd/substrate-sandbox-api`** — the REST service. It bridges clients to
+  the Substrate control plane and router.
 - **`cmd/substrate-guestd`** — the daemon server available in the sandbox. It runs
   inside every actor and serves command executions and filesystem operations.
 
@@ -56,9 +56,8 @@ README) and a snapshots bucket.
 # 1. Deploy the system: namespace, worker pool, and sandbox template.
 sbcli system deploy --snapshots-location gs://<your-bucket>/substrate-sandbox/
 
-# 2. Port-forward the Substrate control plane and router.
-kubectl port-forward -n ate-system svc/ateapi 8080:443 &
-kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
+# 2. Port-forward the sandbox API.
+kubectl port-forward svc/substrate-sandbox-api 8081:80 &
 
 # 3. Create and use a sandbox.
 sbcli sandbox create dev1
@@ -68,10 +67,9 @@ sbcli sandbox cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
 sbcli sandbox delete dev1
 ```
 
-Or use the REST service, which the deploy runs in-cluster:
+Or use the REST API directly:
 
 ```bash
-kubectl port-forward svc/substrate-sandbox-api 8081:80 &
 curl -X POST localhost:8081/v1/sandboxes -d '{"id":"dev1"}'
 curl -X POST localhost:8081/v1/sandboxes/dev1/cmd \
      -d '{"command":["sh","-c","uname -a"]}'
@@ -119,11 +117,8 @@ Available Commands:
 
 ```go
 client, err := sandbox.New(sandbox.Options{
-    ControlAddr: "localhost:8080",              // ateapi gRPC
-    RouterAddr:  "localhost:8000",              // atenet router
-    Template:    "sandbox",                     // ActorTemplate name
-    SkipVerify:  true,                          // ateapi uses pod certs
-    AutoResume:  true,                          // wake sandboxes on use
+    Endpoint: "http://localhost:8081",          // substrate-sandbox-api
+    Template: "sandbox",                        // ActorTemplate name
 })
 if err != nil {
     log.Fatalf("connecting to Substrate: %v", err)
@@ -152,8 +147,9 @@ See [examples/quickstart](examples/quickstart/main.go) for a complete
 program.
 
 `Suspend` writes the snapshot to object storage and survives node loss;
-`Pause` keeps it on the node for faster resume. With `AutoResume`, command
-and file operations transparently resume a suspended sandbox and retry.
+`Pause` keeps it on the node for faster resume. The API service resumes
+suspended sandboxes transparently on command and file operations (its
+`-auto-resume` flag, on by default).
 
 ## API
 
