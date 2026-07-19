@@ -38,7 +38,7 @@ while this project adds the sandbox-shaped API on top.
 go install github.com/rakyll/substrate-sandbox/cmd/...@latest
 ```
 
-## Setup
+## Quickstart
 
 Prerequisites: a cluster with Agent Substrate installed (see the Substrate
 README), `ko`, and a snapshots bucket.
