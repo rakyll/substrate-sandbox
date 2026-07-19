@@ -106,7 +106,7 @@ file operations transparently resume a suspended sandbox and retry.
 
 ## HTTP API (`substrate-sandboxd`)
 
-| Method & path                        | Meaning                                  |
+| Method & path                        | Description                              |
 | ------------------------------------ | ---------------------------------------- |
 | `POST /v1/sandboxes`                 | create (`{"id", "template"?, "start"?}`) |
 | `GET /v1/sandboxes`                  | list                                     |
