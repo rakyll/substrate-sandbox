@@ -1,0 +1,297 @@
+package direct_test
+
+import (
+	"context"
+	"errors"
+	"io"
+	"strings"
+	"testing"
+
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	"github.com/rakyll/substrate-sandbox/internal/direct"
+	"github.com/rakyll/substrate-sandbox/internal/fakecontrol"
+	"github.com/rakyll/substrate-sandbox/internal/fakerouter"
+	"github.com/rakyll/substrate-sandbox/internal/guest"
+)
+
+type fixture struct {
+	control *fakecontrol.Server
+	router  *fakerouter.Router
+	client  *direct.Client
+	guest   string // guest workdir
+}
+
+func newFixture(t *testing.T, autoResume bool) *fixture {
+	t.Helper()
+
+	control := fakecontrol.New()
+	controlAddr, stopControl, err := control.Serve()
+	if err != nil {
+		t.Fatalf("starting fake control plane: %v", err)
+	}
+	t.Cleanup(stopControl)
+
+	router := fakerouter.New()
+	router.Running = func(id string) bool {
+		return control.Status(id) == ateapipb.Actor_STATUS_RUNNING
+	}
+	routerAddr, stopRouter := router.Serve()
+	t.Cleanup(stopRouter)
+
+	guestDir := t.TempDir()
+
+	client, err := direct.New(direct.Options{
+		ControlAddr: controlAddr,
+		RouterAddr:  routerAddr,
+		Template:    "default",
+		Namespace:   "sandboxes",
+		SkipVerify:  true,
+		AutoResume:  autoResume,
+	})
+	if err != nil {
+		t.Fatalf("creating client: %v", err)
+	}
+	t.Cleanup(func() { client.Close() })
+
+	f := &fixture{control: control, router: router, client: client, guest: guestDir}
+	return f
+}
+
+// create makes a sandbox whose guest handler serves from a temp dir.
+func (f *fixture) create(t *testing.T, id string, opts ...direct.CreateOption) *direct.Sandbox {
+	t.Helper()
+	f.router.Register(id, (&guest.Server{Workdir: f.guest}).Handler())
+	sb, err := f.client.Create(t.Context(), id, opts...)
+	if err != nil {
+		t.Fatalf("creating sandbox %q: %v", id, err)
+	}
+	return sb
+}
+
+func TestCreateStartsSandbox(t *testing.T) {
+	f := newFixture(t, false)
+	sb := f.create(t, "sb-1")
+
+	info, err := sb.Info(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Status != direct.StatusRunning {
+		t.Errorf("status = %s, want running", info.Status)
+	}
+	if info.Namespace != "sandboxes" || info.TemplateName != "default" {
+		t.Errorf("template = %s/%s, want sandboxes/default", info.Namespace, info.TemplateName)
+	}
+}
+
+func TestCreateWithoutStart(t *testing.T) {
+	f := newFixture(t, false)
+	sb := f.create(t, "sb-cold", direct.WithoutStart())
+
+	info, err := sb.Info(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Status != direct.StatusSuspended {
+		t.Errorf("status = %s, want suspended", info.Status)
+	}
+}
+
+func TestSuspendResumeCycle(t *testing.T) {
+	f := newFixture(t, false)
+	sb := f.create(t, "sb-cycle")
+	ctx := t.Context()
+
+	if err := sb.Suspend(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if info, _ := sb.Info(ctx); info.Status != direct.StatusSuspended {
+		t.Fatalf("status after suspend = %s, want suspended", info.Status)
+	}
+	if err := sb.Resume(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if info, _ := sb.Info(ctx); info.Status != direct.StatusRunning {
+		t.Fatalf("status after resume = %s, want running", info.Status)
+	}
+	if err := sb.Pause(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if info, _ := sb.Info(ctx); info.Status != direct.StatusPaused {
+		t.Fatalf("status after pause = %s, want paused", info.Status)
+	}
+}
+
+func TestDeleteSuspendsRunningSandboxFirst(t *testing.T) {
+	f := newFixture(t, false)
+	sb := f.create(t, "sb-del")
+	ctx := t.Context()
+
+	// The fake control plane rejects deleting non-suspended actors, so
+	// this passing proves Delete suspends first.
+	if err := sb.Delete(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sb.Info(ctx); !errors.Is(err, direct.ErrNotFound) {
+		t.Errorf("Info after delete = %v, want ErrNotFound", err)
+	}
+}
+
+func TestOpenMissingSandbox(t *testing.T) {
+	f := newFixture(t, false)
+	if _, err := f.client.Open(t.Context(), "does-not-exist"); !errors.Is(err, direct.ErrNotFound) {
+		t.Errorf("Open = %v, want ErrNotFound", err)
+	}
+}
+
+func TestList(t *testing.T) {
+	f := newFixture(t, false)
+	f.create(t, "sb-a")
+	f.create(t, "sb-b", direct.WithoutStart())
+
+	infos, err := f.client.List(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(infos) != 2 {
+		t.Fatalf("got %d sandboxes, want 2: %+v", len(infos), infos)
+	}
+	byID := map[string]direct.Info{}
+	for _, info := range infos {
+		byID[info.ID] = info
+	}
+	if byID["sb-a"].Status != direct.StatusRunning {
+		t.Errorf("sb-a status = %s, want running", byID["sb-a"].Status)
+	}
+	if byID["sb-b"].Status != direct.StatusSuspended {
+		t.Errorf("sb-b status = %s, want suspended", byID["sb-b"].Status)
+	}
+}
+
+func TestCmdAndFilesystem(t *testing.T) {
+	f := newFixture(t, false)
+	sb := f.create(t, "sb-fs")
+	ctx := t.Context()
+
+	if err := sb.WriteFile(ctx, "project/hello.txt", strings.NewReader("hi there"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rc, err := sb.ReadFile(ctx, "project/hello.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(rc)
+	rc.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "hi there" {
+		t.Errorf("read back %q, want %q", data, "hi there")
+	}
+
+	entries, err := sb.ListDir(ctx, "project")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name != "hello.txt" {
+		t.Errorf("entries = %+v, want [hello.txt]", entries)
+	}
+
+	res, err := sb.Cmd(ctx, "cat project/hello.txt && printf '!'")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Stdout != "hi there!" || res.ExitCode != 0 {
+		t.Errorf("exec = %+v, want stdout %q exit 0", res, "hi there!")
+	}
+
+	if err := sb.Mkdir(ctx, "project/sub", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	entry, err := sb.Stat(ctx, "project/sub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !entry.IsDir {
+		t.Errorf("stat = %+v, want directory", entry)
+	}
+
+	if err := sb.Remove(ctx, "project"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sb.Stat(ctx, "project"); !errors.Is(err, direct.ErrNotFound) {
+		t.Errorf("Stat after remove = %v, want ErrNotFound", err)
+	}
+}
+
+func TestCmdOnSuspendedSandboxFailsWithoutAutoResume(t *testing.T) {
+	f := newFixture(t, false)
+	sb := f.create(t, "sb-frozen")
+	ctx := t.Context()
+
+	if err := sb.Suspend(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sb.Cmd(ctx, "true"); err == nil {
+		t.Fatal("exec on suspended sandbox succeeded, want error")
+	}
+}
+
+func TestAutoResumeRetriesGuestOps(t *testing.T) {
+	f := newFixture(t, true)
+	sb := f.create(t, "sb-wake")
+	ctx := t.Context()
+
+	if err := sb.Suspend(ctx); err != nil {
+		t.Fatal(err)
+	}
+	res, err := sb.Cmd(ctx, "echo awake")
+	if err != nil {
+		t.Fatalf("exec with auto-resume: %v", err)
+	}
+	if res.Stdout != "awake\n" {
+		t.Errorf("stdout = %q, want %q", res.Stdout, "awake\n")
+	}
+	if got := f.control.Status("sb-wake"); got != ateapipb.Actor_STATUS_RUNNING {
+		t.Errorf("status after auto-resume = %s, want RUNNING", got)
+	}
+
+	// The retry must replay the request body too.
+	if err := sb.Suspend(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := sb.WriteFile(ctx, "wake.txt", strings.NewReader("resumed write"), 0o644); err != nil {
+		t.Fatalf("write with auto-resume: %v", err)
+	}
+	rc, err := sb.ReadFile(ctx, "wake.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(rc)
+	rc.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "resumed write" {
+		t.Errorf("read back %q, want %q", data, "resumed write")
+	}
+}
+
+func TestCreateRequiresTemplate(t *testing.T) {
+	control := fakecontrol.New()
+	addr, stop, err := control.Serve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+
+	client, err := direct.New(direct.Options{ControlAddr: addr, SkipVerify: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { client.Close() })
+
+	if _, err := client.Create(context.Background(), "sb-x"); err == nil {
+		t.Fatal("Create without template succeeded, want error")
+	}
+}

@@ -3,9 +3,14 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/fs"
+	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	"github.com/rakyll/substrate-sandbox/internal/api"
 )
 
 // Status is the lifecycle state of a sandbox.
@@ -22,7 +27,7 @@ const (
 	StatusCrashed    Status = "crashed"
 )
 
-// Info is a point-in-time snapshot of a sandbox's control-plane state.
+// Info is a point-in-time snapshot of a sandbox's state.
 type Info struct {
 	ID     string
 	Status Status
@@ -38,40 +43,28 @@ type Info struct {
 	WorkerPodIP        string
 }
 
-func statusFromProto(s ateapipb.Actor_Status) Status {
-	switch s {
-	case ateapipb.Actor_STATUS_RESUMING:
-		return StatusResuming
-	case ateapipb.Actor_STATUS_RUNNING:
-		return StatusRunning
-	case ateapipb.Actor_STATUS_SUSPENDING:
-		return StatusSuspending
-	case ateapipb.Actor_STATUS_SUSPENDED:
-		return StatusSuspended
-	case ateapipb.Actor_STATUS_PAUSING:
-		return StatusPausing
-	case ateapipb.Actor_STATUS_PAUSED:
-		return StatusPaused
-	case ateapipb.Actor_STATUS_CRASHED:
-		return StatusCrashed
-	default:
-		return StatusUnknown
-	}
-}
-
-func infoFromActor(a *ateapipb.Actor) Info {
+func infoFromAPI(s api.SandboxInfo) Info {
 	return Info{
-		ID:                 a.GetMetadata().GetName(),
-		Status:             statusFromProto(a.GetStatus()),
-		Namespace:          a.GetActorTemplateNamespace(),
-		TemplateName:       a.GetActorTemplateName(),
-		WorkerPod:          a.GetAteomPodName(),
-		WorkerPodNamespace: a.GetAteomPodNamespace(),
-		WorkerPodIP:        a.GetAteomPodIp(),
+		ID:                 s.ID,
+		Status:             Status(s.Status),
+		TemplateName:       s.Template,
+		Namespace:          s.Namespace,
+		WorkerPod:          s.WorkerPod,
+		WorkerPodNamespace: s.WorkerPodNamespace,
+		WorkerPodIP:        s.WorkerPodIP,
 	}
 }
 
-// Sandbox is a handle to a single sandbox (a Substrate actor).
+// CmdRequest describes a command to run inside a sandbox.
+type CmdRequest = api.CmdRequest
+
+// CmdResult is the outcome of a CmdRequest.
+type CmdResult = api.CmdResult
+
+// DirEntry describes a file or directory inside a sandbox.
+type DirEntry = api.DirEntry
+
+// Sandbox is a handle to a single sandbox.
 type Sandbox struct {
 	id     string
 	client *Client
@@ -80,65 +73,118 @@ type Sandbox struct {
 // ID returns the sandbox's identifier.
 func (s *Sandbox) ID() string { return s.id }
 
-// Info fetches the sandbox's current control-plane state.
+// path returns the API path for the sandbox, with suffix appended.
+func (s *Sandbox) path(suffix string) string {
+	return "/v1/sandboxes/" + url.PathEscape(s.id) + suffix
+}
+
+// Info fetches the sandbox's current state.
 func (s *Sandbox) Info(ctx context.Context) (Info, error) {
-	actor, err := s.client.control.GetActor(ctx, &ateapipb.GetActorRequest{Actor: s.client.ref(s.id)})
-	if err != nil {
-		return Info{}, fmt.Errorf("sandbox: getting %q: %w", s.id, wrapGRPCError(err))
+	var out api.SandboxInfo
+	if err := s.client.doJSON(ctx, http.MethodGet, s.path(""), nil, nil, &out); err != nil {
+		return Info{}, err
 	}
-	return infoFromActor(actor), nil
+	return infoFromAPI(out), nil
 }
 
 // Resume restores the sandbox from its latest snapshot onto an available
 // worker. It is a no-op on the control plane if the sandbox is already
 // running.
 func (s *Sandbox) Resume(ctx context.Context) error {
-	_, err := s.client.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{Actor: s.client.ref(s.id)})
-	if err != nil {
-		return fmt.Errorf("sandbox: resuming %q: %w", s.id, wrapGRPCError(err))
-	}
-	return nil
+	return s.client.doJSON(ctx, http.MethodPost, s.path("/resume"), nil, nil, nil)
 }
 
 // Suspend snapshots the sandbox's full state (memory and filesystem) to
 // external storage and frees its worker. The sandbox can later be resumed
 // on any eligible worker.
 func (s *Sandbox) Suspend(ctx context.Context) error {
-	_, err := s.client.control.SuspendActor(ctx, &ateapipb.SuspendActorRequest{Actor: s.client.ref(s.id)})
-	if err != nil {
-		return fmt.Errorf("sandbox: suspending %q: %w", s.id, wrapGRPCError(err))
-	}
-	return nil
+	return s.client.doJSON(ctx, http.MethodPost, s.path("/suspend"), nil, nil, nil)
 }
 
 // Pause snapshots the sandbox but keeps the snapshot local to the node for
 // faster resume. Unlike Suspend, the state does not survive node loss.
 func (s *Sandbox) Pause(ctx context.Context) error {
-	_, err := s.client.control.PauseActor(ctx, &ateapipb.PauseActorRequest{Actor: s.client.ref(s.id)})
-	if err != nil {
-		return fmt.Errorf("sandbox: pausing %q: %w", s.id, wrapGRPCError(err))
-	}
-	return nil
+	return s.client.doJSON(ctx, http.MethodPost, s.path("/pause"), nil, nil, nil)
 }
 
-// Delete removes the sandbox permanently. Substrate only deletes suspended
-// actors, so Delete suspends the sandbox first if it is not already
-// suspended.
+// Delete removes the sandbox permanently, suspending it first if it is
+// running.
 func (s *Sandbox) Delete(ctx context.Context) error {
-	info, err := s.Info(ctx)
+	return s.client.doJSON(ctx, http.MethodDelete, s.path(""), nil, nil, nil)
+}
+
+// Run runs a command inside the sandbox and returns its captured output
+// and exit code. The command is executed directly (not through a shell);
+// see Cmd for a shell-friendly shorthand.
+func (s *Sandbox) Run(ctx context.Context, req CmdRequest) (*CmdResult, error) {
+	var res CmdResult
+	if err := s.client.doJSON(ctx, http.MethodPost, s.path("/cmd"), nil, req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// Cmd runs a shell command line ("sh -c") inside the sandbox.
+func (s *Sandbox) Cmd(ctx context.Context, commandLine string) (*CmdResult, error) {
+	return s.Run(ctx, CmdRequest{Command: []string{"sh", "-c", commandLine}})
+}
+
+// ReadFile streams the contents of the file at path inside the sandbox.
+// The caller must close the returned reader.
+func (s *Sandbox) ReadFile(ctx context.Context, path string) (io.ReadCloser, error) {
+	resp, err := s.client.do(ctx, http.MethodGet, s.path("/files"), url.Values{"path": {path}}, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
+}
+
+// WriteFile writes the contents of r to the file at path inside the
+// sandbox with the given permissions, creating parent directories as
+// needed.
+func (s *Sandbox) WriteFile(ctx context.Context, path string, r io.Reader, mode fs.FileMode) error {
+	q := url.Values{
+		"path": {path},
+		"mode": {strconv.FormatUint(uint64(mode.Perm()), 8)},
+	}
+	resp, err := s.client.do(ctx, http.MethodPut, s.path("/files"), q, "application/octet-stream", r)
 	if err != nil {
 		return err
 	}
-	if info.Status != StatusSuspended {
-		if err := s.Suspend(ctx); err != nil {
-			return fmt.Errorf("sandbox: suspending %q before delete: %w", s.id, err)
-		}
-	}
-	_, err = s.client.control.DeleteActor(ctx, &ateapipb.DeleteActorRequest{Actor: s.client.ref(s.id)})
-	if err != nil {
-		return fmt.Errorf("sandbox: deleting %q: %w", s.id, wrapGRPCError(err))
-	}
+	resp.Body.Close()
 	return nil
+}
+
+// ListDir lists the entries of the directory at path inside the sandbox.
+func (s *Sandbox) ListDir(ctx context.Context, path string) ([]DirEntry, error) {
+	var out api.ListDirResponse
+	if err := s.client.doJSON(ctx, http.MethodGet, s.path("/dir"), url.Values{"path": {path}}, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Entries, nil
+}
+
+// Stat returns information about the file or directory at path.
+func (s *Sandbox) Stat(ctx context.Context, path string) (DirEntry, error) {
+	var entry DirEntry
+	if err := s.client.doJSON(ctx, http.MethodGet, s.path("/stat"), url.Values{"path": {path}}, nil, &entry); err != nil {
+		return DirEntry{}, err
+	}
+	return entry, nil
+}
+
+// Mkdir creates the directory at path, along with any missing parents.
+func (s *Sandbox) Mkdir(ctx context.Context, path string, mode fs.FileMode) error {
+	q := url.Values{
+		"path": {path},
+		"mode": {strconv.FormatUint(uint64(mode.Perm()), 8)},
+	}
+	return s.client.doJSON(ctx, http.MethodPost, s.path("/dir"), q, nil, nil)
+}
+
+// Remove deletes the file or directory tree at path.
+func (s *Sandbox) Remove(ctx context.Context, path string) error {
+	return s.client.doJSON(ctx, http.MethodDelete, s.path("/files"), url.Values{"path": {path}}, nil, nil)
 }
 
 // WaitStatus polls until the sandbox reaches the given status or ctx is

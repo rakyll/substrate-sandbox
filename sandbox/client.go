@@ -1,144 +1,79 @@
-// Package sandbox provides a Claude Sandbox-style abstraction on top of
-// Agent Substrate. A Sandbox wraps a Substrate actor: it can be created,
-// suspended (full snapshot to object storage), resumed, and deleted, and
-// while running it accepts remote command execution and filesystem
-// operations served by the substrate-guestd daemon inside the actor.
-//
-// Lifecycle operations go to the ateapi gRPC control plane; command and
-// filesystem operations go through the atenet HTTP router, which routes
-// requests by Host header to the actor's guest daemon.
+// Package sandbox is the Go SDK for the sandbox service. It talks to the
+// substrate-sandbox-api REST service, which bridges to the Substrate
+// control plane and router; `sbcli system deploy` runs that service
+// in-cluster.
 package sandbox
 
 import (
+	"bytes"
 	"context"
-	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
-	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
+	"github.com/rakyll/substrate-sandbox/internal/api"
 )
-
-// DefaultHostSuffix is the DNS suffix the atenet router uses to identify
-// actors: requests with Host "<id>.<suffix>" are routed to actor <id>.
-const DefaultHostSuffix = "actors.resources.substrate.ate.dev"
 
 // ErrNotFound is returned when a sandbox, file, or directory does not exist.
 var ErrNotFound = errors.New("not found")
 
 // Options configures a Client.
 type Options struct {
-	// ControlAddr is the ateapi gRPC endpoint, e.g. "localhost:8080"
-	// (typically a port-forward of svc/ateapi in ate-system). Required.
-	ControlAddr string
+	// Endpoint is the base URL of the substrate-sandbox-api REST service,
+	// e.g. "http://localhost:8081" (typically a port-forward of
+	// svc/substrate-sandbox-api). A bare host:port implies http.
+	// Required.
+	Endpoint string
 
-	// RouterAddr is the atenet HTTP router endpoint, e.g. "localhost:8000"
-	// (typically a port-forward of svc/atenet-router in ate-system).
-	// Required for Cmd and filesystem operations.
-	RouterAddr string
-
-	// HostSuffix overrides the router host suffix. Defaults to
-	// DefaultHostSuffix.
-	HostSuffix string
-
-	// Template is the name of the default ActorTemplate for Create.
+	// Template is the name of the default ActorTemplate for Create. Empty
+	// means the service's default template.
 	Template string
 
 	// Namespace is the Kubernetes namespace the ActorTemplates live in.
-	// Defaults to "default".
+	// Empty means the service's default ("default").
 	Namespace string
 
-	// Atespace is the Substrate atespace sandboxes live in. Empty means
-	// the global scope.
-	Atespace string
-
-	// SkipVerify disables TLS certificate verification on the control
-	// plane connection. Set this when talking to a port-forwarded ateapi,
-	// which serves with pod certificates not signed by a public CA (the
-	// Substrate demos and kubectl-ate connect the same way).
-	SkipVerify bool
-
-	// TLSConfig overrides the TLS configuration for the control plane
-	// connection.
-	TLSConfig *tls.Config
-
-	// HTTPClient overrides the HTTP client used for router traffic.
+	// HTTPClient overrides the HTTP client used for API traffic.
 	HTTPClient *http.Client
-
-	// AutoResume makes guest operations (Cmd, file I/O) resume a
-	// suspended or paused sandbox and retry once, instead of failing.
-	AutoResume bool
 }
 
-// Client manages sandboxes on a Substrate cluster.
+// Client manages sandboxes through the substrate-sandbox-api service.
 type Client struct {
-	opts    Options
-	conn    *grpc.ClientConn
-	control ateapipb.ControlClient
-	http    *http.Client
+	opts     Options
+	endpoint string
+	http     *http.Client
 }
 
-// New creates a Client. The control-plane connection is established
-// lazily on first use.
+// New creates a Client.
 func New(opts Options) (*Client, error) {
-	if opts.ControlAddr == "" {
-		return nil, errors.New("sandbox: Options.ControlAddr is required")
+	if opts.Endpoint == "" {
+		return nil, errors.New("sandbox: Options.Endpoint is required")
 	}
-	if opts.HostSuffix == "" {
-		opts.HostSuffix = DefaultHostSuffix
+	endpoint := opts.Endpoint
+	if !strings.Contains(endpoint, "://") {
+		endpoint = "http://" + endpoint
 	}
-
-	var creds credentials.TransportCredentials
-	if opts.TLSConfig != nil {
-		creds = credentials.NewTLS(opts.TLSConfig)
-	} else {
-		creds = credentials.NewTLS(&tls.Config{InsecureSkipVerify: opts.SkipVerify})
-	}
-
-	conn, err := grpc.NewClient(opts.ControlAddr, grpc.WithTransportCredentials(creds))
+	u, err := url.Parse(endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("sandbox: dialing control plane: %w", err)
+		return nil, fmt.Errorf("sandbox: invalid endpoint %q: %w", opts.Endpoint, err)
 	}
-
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
-
 	return &Client{
-		opts:    opts,
-		conn:    conn,
-		control: ateapipb.NewControlClient(conn),
-		http:    httpClient,
+		opts:     opts,
+		endpoint: strings.TrimSuffix(u.String(), "/"),
+		http:     httpClient,
 	}, nil
 }
 
-// Close releases the control-plane connection.
-func (c *Client) Close() error {
-	return c.conn.Close()
-}
-
-func (c *Client) templateRef(overrideNamespace, overrideName string) (namespace, name string, err error) {
-	name = overrideName
-	if name == "" {
-		name = c.opts.Template
-	}
-	if name == "" {
-		return "", "", errors.New("sandbox: no ActorTemplate specified (set Options.Template or WithTemplate)")
-	}
-	namespace = overrideNamespace
-	if namespace == "" {
-		namespace = c.opts.Namespace
-	}
-	if namespace == "" {
-		namespace = "default"
-	}
-	return namespace, name, nil
-}
+// Close releases the client's resources.
+func (c *Client) Close() error { return nil }
 
 // CreateOption customizes Create.
 type CreateOption func(*createConfig)
@@ -148,7 +83,6 @@ type createConfig struct {
 	templateNamespace string
 	workerSelector    map[string]string
 	noStart           bool
-	boot              bool
 }
 
 // WithTemplate overrides the client's default ActorTemplate name.
@@ -174,12 +108,6 @@ func WithoutStart() CreateOption {
 	return func(c *createConfig) { c.noStart = true }
 }
 
-// WithBoot starts the sandbox by booting the workload from scratch,
-// skipping the template's golden snapshot.
-func WithBoot() CreateOption {
-	return func(c *createConfig) { c.boot = true }
-}
-
 // Create registers a new sandbox with the given ID (a DNS-1123 label) and,
 // unless WithoutStart is given, starts it.
 func (c *Client) Create(ctx context.Context, id string, opts ...CreateOption) (*Sandbox, error) {
@@ -187,38 +115,25 @@ func (c *Client) Create(ctx context.Context, id string, opts ...CreateOption) (*
 	for _, o := range opts {
 		o(&cfg)
 	}
-	namespace, name, err := c.templateRef(cfg.templateNamespace, cfg.template)
-	if err != nil {
+	template := cfg.template
+	if template == "" {
+		template = c.opts.Template
+	}
+	namespace := cfg.templateNamespace
+	if namespace == "" {
+		namespace = c.opts.Namespace
+	}
+	req := api.CreateSandboxRequest{
+		ID:             id,
+		Template:       template,
+		Namespace:      namespace,
+		WorkerSelector: cfg.workerSelector,
+		Start:          !cfg.noStart,
+	}
+	if err := c.doJSON(ctx, http.MethodPost, "/v1/sandboxes", nil, req, nil); err != nil {
 		return nil, err
 	}
-
-	actor := &ateapipb.Actor{
-		Metadata: &ateapipb.ResourceMetadata{
-			Atespace: c.opts.Atespace,
-			Name:     id,
-		},
-		ActorTemplateNamespace: namespace,
-		ActorTemplateName:      name,
-	}
-	if len(cfg.workerSelector) > 0 {
-		actor.WorkerSelector = &ateapipb.Selector{MatchLabels: cfg.workerSelector}
-	}
-	if _, err := c.control.CreateActor(ctx, &ateapipb.CreateActorRequest{Actor: actor}); err != nil {
-		return nil, fmt.Errorf("sandbox: creating %q: %w", id, wrapGRPCError(err))
-	}
-
-	sb := &Sandbox{id: id, client: c}
-	if !cfg.noStart {
-		if _, err := c.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{Actor: c.ref(id), Boot: cfg.boot}); err != nil {
-			return sb, fmt.Errorf("sandbox: starting %q: %w", id, wrapGRPCError(err))
-		}
-	}
-	return sb, nil
-}
-
-// ref returns the ObjectRef identifying the actor backing sandbox id.
-func (c *Client) ref(id string) *ateapipb.ObjectRef {
-	return &ateapipb.ObjectRef{Atespace: c.opts.Atespace, Name: id}
+	return &Sandbox{id: id, client: c}, nil
 }
 
 // Open returns a handle to an existing sandbox, verifying it exists.
@@ -236,32 +151,76 @@ func (c *Client) Sandbox(id string) *Sandbox {
 	return &Sandbox{id: id, client: c}
 }
 
-// List returns information about all sandboxes known to the control plane.
+// List returns information about all sandboxes known to the service.
 func (c *Client) List(ctx context.Context) ([]Info, error) {
-	var infos []Info
-	var pageToken string
-	for {
-		resp, err := c.control.ListActors(ctx, &ateapipb.ListActorsRequest{
-			Atespace:  c.opts.Atespace,
-			PageSize:  500,
-			PageToken: pageToken,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("sandbox: listing sandboxes: %w", wrapGRPCError(err))
-		}
-		for _, a := range resp.GetActors() {
-			infos = append(infos, infoFromActor(a))
-		}
-		pageToken = resp.GetNextPageToken()
-		if pageToken == "" {
-			return infos, nil
-		}
+	var resp api.ListSandboxesResponse
+	if err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes", nil, nil, &resp); err != nil {
+		return nil, err
 	}
+	infos := make([]Info, 0, len(resp.Sandboxes))
+	for _, s := range resp.Sandboxes {
+		infos = append(infos, infoFromAPI(s))
+	}
+	return infos, nil
 }
 
-func wrapGRPCError(err error) error {
-	if status.Code(err) == codes.NotFound {
-		return fmt.Errorf("%w: %s", ErrNotFound, status.Convert(err).Message())
+// do performs an HTTP request against the API service. Non-2xx responses
+// are converted to errors.
+func (c *Client) do(ctx context.Context, method, path string, query url.Values, contentType string, body io.Reader) (*http.Response, error) {
+	u := c.endpoint + path
+	if len(query) > 0 {
+		u += "?" + query.Encode()
 	}
-	return err
+	req, err := http.NewRequestWithContext(ctx, method, u, body)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox: building request: %w", err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox: reaching the API at %q: %w", c.endpoint, err)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return resp, nil
+	}
+	defer resp.Body.Close()
+
+	payload, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	var apiErr api.Error
+	if jsonErr := json.Unmarshal(payload, &apiErr); jsonErr == nil && apiErr.Message != "" {
+		if apiErr.Code == api.CodeNotFound {
+			return nil, fmt.Errorf("sandbox: %w: %s", ErrNotFound, apiErr.Message)
+		}
+		return nil, fmt.Errorf("sandbox: %s", apiErr.Message)
+	}
+	return nil, fmt.Errorf("sandbox: API returned HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(payload))
+}
+
+// doJSON performs a request with an optional JSON body (in) and decodes
+// the JSON response into out when non-nil.
+func (c *Client) doJSON(ctx context.Context, method, path string, query url.Values, in, out any) error {
+	var body io.Reader
+	contentType := ""
+	if in != nil {
+		data, err := json.Marshal(in)
+		if err != nil {
+			return fmt.Errorf("sandbox: encoding request: %w", err)
+		}
+		body = bytes.NewReader(data)
+		contentType = "application/json"
+	}
+	resp, err := c.do(ctx, method, path, query, contentType, body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if out == nil {
+		return nil
+	}
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return fmt.Errorf("sandbox: decoding response: %w", err)
+	}
+	return nil
 }

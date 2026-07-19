@@ -2,10 +2,9 @@
 // sandbox, write and run code in it, suspend it, then resume and observe
 // that its filesystem survived the hibernation cycle.
 //
-// It expects port-forwards to the Substrate control plane and router:
+// It expects a port-forward to the substrate-sandbox-api service:
 //
-//	kubectl port-forward -n ate-system svc/ateapi 8080:443
-//	kubectl port-forward -n ate-system svc/atenet-router 8000:80
+//	kubectl port-forward svc/substrate-sandbox-api 8081:80
 package main
 
 import (
@@ -22,11 +21,8 @@ func main() {
 	ctx := context.Background()
 
 	client, err := sandbox.New(sandbox.Options{
-		ControlAddr: "localhost:8080",
-		RouterAddr:  "localhost:8000",
-		Template:    "sandbox",
-		SkipVerify:  true, // ateapi serves with pod certificates
-		AutoResume:  true,
+		Endpoint: "http://localhost:8081",
+		Template: "sandbox",
 	})
 	if err != nil {
 		log.Fatal(err)

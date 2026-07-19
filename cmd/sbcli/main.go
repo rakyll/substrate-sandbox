@@ -1,8 +1,9 @@
-// Command sbcli is a CLI for the sandbox service. It talks directly to the
-// Substrate control plane and router using the sandbox SDK.
+// Command sbcli is a CLI for the sandbox service. Sandbox commands go
+// through the substrate-sandbox-api REST service using the sandbox SDK;
+// system commands talk to the Kubernetes API.
 //
-// Endpoints can be set with flags or the SBCLI_ATEAPI and SBCLI_ATENET
-// environment variables.
+// The API endpoint can be set with the --api flag or the SBCLI_API
+// environment variable.
 package main
 
 import (
@@ -25,11 +26,9 @@ func envOr(key, fallback string) string {
 
 func main() {
 	var (
-		ateapi     string
-		atenet     string
-		template   string
-		namespace  string
-		skipVerify bool
+		endpoint  string
+		template  string
+		namespace string
 
 		client *sandbox.Client
 	)
@@ -40,19 +39,15 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// deploy talks to the Kubernetes API, not the Substrate
-			// control plane.
+			// deploy talks to the Kubernetes API, not the sandbox API.
 			if cmd.Name() == "deploy" {
 				return nil
 			}
 			var err error
 			client, err = sandbox.New(sandbox.Options{
-				ControlAddr: ateapi,
-				RouterAddr:  atenet,
-				Template:    template,
-				Namespace:   namespace,
-				SkipVerify:  skipVerify,
-				AutoResume:  true,
+				Endpoint:  endpoint,
+				Template:  template,
+				Namespace: namespace,
 			})
 			return err
 		},
@@ -62,11 +57,9 @@ func main() {
 			}
 		},
 	}
-	root.PersistentFlags().StringVar(&ateapi, "ateapi", envOr("SBCLI_ATEAPI", "localhost:8080"), "address of the ateapi gRPC control plane")
-	root.PersistentFlags().StringVar(&atenet, "atenet", envOr("SBCLI_ATENET", "localhost:8000"), "address of the atenet HTTP router")
+	root.PersistentFlags().StringVar(&endpoint, "api", envOr("SBCLI_API", "http://localhost:8081"), "base URL of the substrate-sandbox-api REST service")
 	root.PersistentFlags().StringVar(&template, "template", "sandbox", "ActorTemplate name (for create)")
 	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
-	root.PersistentFlags().BoolVar(&skipVerify, "skip-verify", true, "skip TLS certificate verification on the control plane connection")
 
 	sandboxCmd := &cobra.Command{
 		Use:   "sandbox",

@@ -10,11 +10,11 @@ import (
 
 	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
 	"github.com/rakyll/substrate-sandbox/internal/api"
+	"github.com/rakyll/substrate-sandbox/internal/direct"
 	"github.com/rakyll/substrate-sandbox/internal/fakecontrol"
 	"github.com/rakyll/substrate-sandbox/internal/fakerouter"
 	"github.com/rakyll/substrate-sandbox/internal/guest"
 	"github.com/rakyll/substrate-sandbox/internal/service"
-	"github.com/rakyll/substrate-sandbox/sandbox"
 )
 
 func newAPI(t *testing.T) (*httptest.Server, *fakerouter.Router) {
@@ -34,7 +34,7 @@ func newAPI(t *testing.T) (*httptest.Server, *fakerouter.Router) {
 	routerAddr, stopRouter := router.Serve()
 	t.Cleanup(stopRouter)
 
-	client, err := sandbox.New(sandbox.Options{
+	client, err := direct.New(direct.Options{
 		ControlAddr: controlAddr,
 		RouterAddr:  routerAddr,
 		SkipVerify:  true,
@@ -82,7 +82,7 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create status = %d, want 201", resp.StatusCode)
 	}
-	created := decode[service.SandboxInfo](t, resp)
+	created := decode[api.SandboxInfo](t, resp)
 	if created.ID != "web-1" || created.Status != "running" {
 		t.Fatalf("created = %+v, want web-1 running", created)
 	}
@@ -105,7 +105,7 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 
 	// Suspend, then exec again: auto-resume kicks in.
 	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/suspend", "")
-	if got := decode[service.SandboxInfo](t, resp); got.Status != "suspended" {
+	if got := decode[api.SandboxInfo](t, resp); got.Status != "suspended" {
 		t.Fatalf("after suspend = %+v, want suspended", got)
 	}
 	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/cmd", `{"command":["sh","-c","echo back"]}`)
@@ -140,13 +140,13 @@ func TestCreateStartDefaults(t *testing.T) {
 
 	// Omitting "start" starts the sandbox.
 	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"started","template":"default","namespace":"sandboxes"}`)
-	if got := decode[service.SandboxInfo](t, resp); got.Status != "running" {
+	if got := decode[api.SandboxInfo](t, resp); got.Status != "running" {
 		t.Errorf("create without start = %+v, want running", got)
 	}
 
 	// An explicit "start": false registers the sandbox without starting it.
 	resp = do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"cold","template":"default","namespace":"sandboxes","start":false}`)
-	if got := decode[service.SandboxInfo](t, resp); got.Status != "suspended" {
+	if got := decode[api.SandboxInfo](t, resp); got.Status != "suspended" {
 		t.Errorf("create with start=false = %+v, want suspended", got)
 	}
 }
@@ -163,8 +163,10 @@ func TestRESTValidation(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Errorf("create with defaults status = %d, want 201", resp.StatusCode)
 	}
-	if got := decode[service.SandboxInfo](t, resp); got.Template != "default/"+service.DefaultTemplate {
-		t.Errorf("template with defaults = %q, want %q", got.Template, "default/"+service.DefaultTemplate)
+	got := decode[api.SandboxInfo](t, resp)
+	if got.Template != service.DefaultTemplate || got.Namespace != "default" {
+		t.Errorf("template with defaults = %q in %q, want %q in %q",
+			got.Template, got.Namespace, service.DefaultTemplate, "default")
 	}
 	resp = do(t, "GET", srv.URL+"/v1/sandboxes/absent", "")
 	if resp.StatusCode != http.StatusNotFound {

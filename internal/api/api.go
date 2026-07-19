@@ -79,6 +79,45 @@ type ListDirResponse struct {
 	Entries []DirEntry `json:"entries"`
 }
 
+// CreateSandboxRequest is the body of POST /v1/sandboxes.
+type CreateSandboxRequest struct {
+	// ID is the sandbox identifier (a DNS-1123 label). Required.
+	ID string `json:"id"`
+
+	// Template is the name of the ActorTemplate the sandbox is created
+	// from. Defaults to the service's default template ("sandbox").
+	Template string `json:"template,omitempty"`
+
+	// Namespace is the Kubernetes namespace the ActorTemplate lives in.
+	// Defaults to "default".
+	Namespace string `json:"namespace,omitempty"`
+
+	// WorkerSelector constrains which worker pools can host the sandbox.
+	WorkerSelector map[string]string `json:"workerSelector,omitempty"`
+
+	// Start controls whether the sandbox starts immediately. Defaults to
+	// true when omitted from the request.
+	Start bool `json:"start"`
+}
+
+// SandboxInfo is the JSON representation of a sandbox.
+type SandboxInfo struct {
+	ID        string `json:"id"`
+	Status    string `json:"status"`
+	Template  string `json:"template,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+
+	// WorkerPod fields identify the pod hosting the sandbox, when running.
+	WorkerPod          string `json:"workerPod,omitempty"`
+	WorkerPodNamespace string `json:"workerPodNamespace,omitempty"`
+	WorkerPodIP        string `json:"workerPodIP,omitempty"`
+}
+
+// ListSandboxesResponse is the body of GET /v1/sandboxes.
+type ListSandboxesResponse struct {
+	Sandboxes []SandboxInfo `json:"sandboxes"`
+}
+
 // Error codes returned in Error.Code.
 const (
 	CodeNotFound        = "not_found"

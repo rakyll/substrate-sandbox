@@ -8,8 +8,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/rakyll/substrate-sandbox/internal/direct"
 	"github.com/rakyll/substrate-sandbox/internal/service"
-	"github.com/rakyll/substrate-sandbox/sandbox"
 )
 
 func main() {
@@ -17,13 +17,13 @@ func main() {
 		listen     = flag.String("listen", ":8081", "address to serve the REST API on")
 		ateapi     = flag.String("ateapi", "localhost:8080", "address of the ateapi gRPC control plane")
 		atenet     = flag.String("atenet", "localhost:8000", "address of the atenet HTTP router")
-		hostSuffix = flag.String("host-suffix", sandbox.DefaultHostSuffix, "atenet router host suffix for actor routing")
+		hostSuffix = flag.String("host-suffix", direct.DefaultHostSuffix, "atenet router host suffix for actor routing")
 		skipVerify = flag.Bool("skip-verify", true, "skip TLS certificate verification on the control plane connection")
 		autoResume = flag.Bool("auto-resume", true, "resume suspended sandboxes on exec/file operations")
 	)
 	flag.Parse()
 
-	client, err := sandbox.New(sandbox.Options{
+	client, err := direct.New(direct.Options{
 		ControlAddr: *ateapi,
 		RouterAddr:  *atenet,
 		HostSuffix:  *hostSuffix,

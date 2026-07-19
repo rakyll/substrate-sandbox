@@ -13,51 +13,27 @@ import (
 	"strconv"
 
 	"github.com/rakyll/substrate-sandbox/internal/api"
-	"github.com/rakyll/substrate-sandbox/sandbox"
+	"github.com/rakyll/substrate-sandbox/internal/direct"
 )
 
 // DefaultTemplate is the ActorTemplate name used when a create request
 // does not specify one.
 const DefaultTemplate = "sandbox"
 
-// CreateSandboxRequest is the body of POST /v1/sandboxes.
-type CreateSandboxRequest struct {
-	// ID is the sandbox identifier (a DNS-1123 label). Required.
-	ID string `json:"id"`
-
-	// Template is the name of the ActorTemplate the sandbox is created
-	// from. Defaults to DefaultTemplate.
-	Template string `json:"template,omitempty"`
-
-	// Namespace is the Kubernetes namespace the ActorTemplate lives in.
-	// Defaults to "default".
-	Namespace string `json:"namespace,omitempty"`
-
-	// WorkerSelector constrains which worker pools can host the sandbox.
-	WorkerSelector map[string]string `json:"workerSelector,omitempty"`
-
-	// Start controls whether the sandbox starts immediately. Defaults to
-	// true when omitted from the request.
-	Start bool `json:"start"`
-}
-
-// SandboxInfo is the JSON representation of a sandbox.
-type SandboxInfo struct {
-	ID       string `json:"id"`
-	Status   string `json:"status"`
-	Template string `json:"template,omitempty"`
-}
-
-func toSandboxInfo(info sandbox.Info) SandboxInfo {
-	out := SandboxInfo{ID: info.ID, Status: string(info.Status)}
-	if info.TemplateName != "" {
-		out.Template = info.Namespace + "/" + info.TemplateName
+func toSandboxInfo(info direct.Info) api.SandboxInfo {
+	return api.SandboxInfo{
+		ID:                 info.ID,
+		Status:             string(info.Status),
+		Template:           info.TemplateName,
+		Namespace:          info.Namespace,
+		WorkerPod:          info.WorkerPod,
+		WorkerPodNamespace: info.WorkerPodNamespace,
+		WorkerPodIP:        info.WorkerPodIP,
 	}
-	return out
 }
 
 // Handler serves the sandbox REST API backed by client.
-func Handler(client *sandbox.Client) http.Handler {
+func Handler(client *direct.Client) http.Handler {
 	s := &server{client: client}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -67,9 +43,9 @@ func Handler(client *sandbox.Client) http.Handler {
 	mux.HandleFunc("GET /v1/sandboxes", s.list)
 	mux.HandleFunc("GET /v1/sandboxes/{id}", s.get)
 	mux.HandleFunc("DELETE /v1/sandboxes/{id}", s.delete)
-	mux.HandleFunc("POST /v1/sandboxes/{id}/suspend", s.lifecycle((*sandbox.Sandbox).Suspend))
-	mux.HandleFunc("POST /v1/sandboxes/{id}/pause", s.lifecycle((*sandbox.Sandbox).Pause))
-	mux.HandleFunc("POST /v1/sandboxes/{id}/resume", s.lifecycle((*sandbox.Sandbox).Resume))
+	mux.HandleFunc("POST /v1/sandboxes/{id}/suspend", s.lifecycle((*direct.Sandbox).Suspend))
+	mux.HandleFunc("POST /v1/sandboxes/{id}/pause", s.lifecycle((*direct.Sandbox).Pause))
+	mux.HandleFunc("POST /v1/sandboxes/{id}/resume", s.lifecycle((*direct.Sandbox).Resume))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/cmd", s.cmd)
 	mux.HandleFunc("GET /v1/sandboxes/{id}/files", s.readFile)
 	mux.HandleFunc("PUT /v1/sandboxes/{id}/files", s.writeFile)
@@ -81,7 +57,7 @@ func Handler(client *sandbox.Client) http.Handler {
 }
 
 type server struct {
-	client *sandbox.Client
+	client *direct.Client
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -93,7 +69,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func writeErr(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
 	code := api.CodeInternal
-	if errors.Is(err, sandbox.ErrNotFound) {
+	if errors.Is(err, direct.ErrNotFound) {
 		status = http.StatusNotFound
 		code = api.CodeNotFound
 	}
@@ -110,7 +86,7 @@ func writeBadRequest(w http.ResponseWriter, format string, args ...any) {
 func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	// Start defaults to true; decoding leaves it untouched when the
 	// request omits the field.
-	req := CreateSandboxRequest{Start: true}
+	req := api.CreateSandboxRequest{Start: true}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid request body: %v", err)
 		return
@@ -122,15 +98,15 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	if req.Template == "" {
 		req.Template = DefaultTemplate
 	}
-	opts := []sandbox.CreateOption{sandbox.WithTemplate(req.Template)}
+	opts := []direct.CreateOption{direct.WithTemplate(req.Template)}
 	if req.Namespace != "" {
-		opts = append(opts, sandbox.WithNamespace(req.Namespace))
+		opts = append(opts, direct.WithNamespace(req.Namespace))
 	}
 	if len(req.WorkerSelector) > 0 {
-		opts = append(opts, sandbox.WithWorkerSelector(req.WorkerSelector))
+		opts = append(opts, direct.WithWorkerSelector(req.WorkerSelector))
 	}
 	if !req.Start {
-		opts = append(opts, sandbox.WithoutStart())
+		opts = append(opts, direct.WithoutStart())
 	}
 	sb, err := s.client.Create(r.Context(), req.ID, opts...)
 	if err != nil {
@@ -151,11 +127,11 @@ func (s *server) list(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	out := make([]SandboxInfo, 0, len(infos))
+	out := make([]api.SandboxInfo, 0, len(infos))
 	for _, info := range infos {
 		out = append(out, toSandboxInfo(info))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sandboxes": out})
+	writeJSON(w, http.StatusOK, api.ListSandboxesResponse{Sandboxes: out})
 }
 
 func (s *server) get(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +151,7 @@ func (s *server) delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *server) lifecycle(op func(*sandbox.Sandbox, context.Context) error) http.HandlerFunc {
+func (s *server) lifecycle(op func(*direct.Sandbox, context.Context) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sb := s.client.Sandbox(r.PathValue("id"))
 		if err := op(sb, r.Context()); err != nil {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/rakyll/substrate-sandbox/sandbox"
+	"github.com/rakyll/substrate-sandbox/internal/direct"
 )
 
 // Router is a fake atenet router.
@@ -38,7 +38,7 @@ func (r *Router) Register(id string, h http.Handler) {
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	id, _, ok := strings.Cut(req.Host, ".")
-	if !ok || !strings.HasSuffix(req.Host, "."+sandbox.DefaultHostSuffix) {
+	if !ok || !strings.HasSuffix(req.Host, "."+direct.DefaultHostSuffix) {
 		http.Error(w, "unroutable host "+req.Host, http.StatusNotFound)
 		return
 	}
