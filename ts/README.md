@@ -1,4 +1,4 @@
-# substrate-sandbox (TypeScript SDK)
+# TypeScript SDK
 
 TypeScript SDK for [substrate-sandbox](https://github.com/rakyll/substrate-sandbox):
 isolated, stateful execution environments on
