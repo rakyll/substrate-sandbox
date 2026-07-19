@@ -20,9 +20,11 @@ func testDeployConfig() deployConfig {
 		workerPool:        "sandbox-workerpool",
 		guestdImage:       "example.com/guestd@sha256:aaaa",
 		ateomImage:        "example.com/ateom@sha256:bbbb",
+		apiImage:          "example.com/api@sha256:cccc",
 		pauseImage:        defaultPauseImage,
 		snapshotsLocation: "gs://bucket/substrate-sandbox/",
 		replicas:          3,
+		apiReplicas:       1,
 		guestdCommand:     []string{"/ko-app/substrate-guestd", "-workdir", "/workspace"},
 		poolLabels:        map[string]string{"workload": "sandbox"},
 	}
@@ -42,6 +44,11 @@ func TestResolveImages(t *testing.T) {
 	cfg.ateomImage = ""
 	if err := cfg.resolveImages(); err == nil {
 		t.Error("resolveImages with a missing image: want error, got nil")
+	}
+	cfg = testDeployConfig()
+	cfg.apiImage = ""
+	if err := cfg.resolveImages(); err == nil {
+		t.Error("resolveImages with a missing api image: want error, got nil")
 	}
 }
 
@@ -87,6 +94,29 @@ func TestRunDeployCreatesResources(t *testing.T) {
 	readyz := template.Spec.Containers[0].Readyz
 	if readyz == nil || readyz.HTTPGet == nil || readyz.HTTPGet.Path != "/healthz" {
 		t.Errorf("readyz = %+v, want HTTP GET /healthz", readyz)
+	}
+
+	deployment, err := kube.AppsV1().Deployments("substrate-sandbox").Get(context.Background(), apiName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("api deployment not created: %v", err)
+	}
+	containers := deployment.Spec.Template.Spec.Containers
+	if len(containers) != 1 || containers[0].Image != cfg.apiImage {
+		t.Errorf("api containers = %+v, want one container with image %q", containers, cfg.apiImage)
+	}
+	if *deployment.Spec.Replicas != 1 {
+		t.Errorf("api replicas = %d, want 1", *deployment.Spec.Replicas)
+	}
+
+	service, err := kube.CoreV1().Services("substrate-sandbox").Get(context.Background(), apiName, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("api service not created: %v", err)
+	}
+	if service.Spec.Selector["app"] != apiName {
+		t.Errorf("api service selector = %v, want app=%s", service.Spec.Selector, apiName)
+	}
+	if len(service.Spec.Ports) != 1 || service.Spec.Ports[0].Port != 80 || service.Spec.Ports[0].TargetPort.IntValue() != 8081 {
+		t.Errorf("api service ports = %+v, want 80 -> 8081", service.Spec.Ports)
 	}
 }
 

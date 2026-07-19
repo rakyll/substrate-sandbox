@@ -68,10 +68,10 @@ sbcli sandbox cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
 sbcli sandbox delete dev1
 ```
 
-Or run the REST service:
+Or use the REST service, which the deploy runs in-cluster:
 
 ```bash
-substrate-sandbox-api
+kubectl port-forward svc/substrate-sandbox-api 8081:80 &
 curl -X POST localhost:8081/v1/sandboxes -d '{"id":"dev1"}'
 curl -X POST localhost:8081/v1/sandboxes/dev1/cmd \
      -d '{"command":["sh","-c","uname -a"]}'
@@ -157,8 +157,9 @@ and file operations transparently resume a suspended sandbox and retry.
 
 ## API
 
-`substrate-sandbox-api` serves the REST API (default `:8081`). Responses are
-JSON unless noted.
+`substrate-sandbox-api` serves the REST API. `sbcli system deploy` runs it
+in-cluster as the `substrate-sandbox-api` service (port 80); it can also be
+run standalone (default `:8081`). Responses are JSON unless noted.
 
 ### Sandboxes
 

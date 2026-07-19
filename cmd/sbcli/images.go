@@ -11,4 +11,5 @@ package main
 var (
 	defaultGuestdImage string
 	defaultAteomImage  string
+	defaultAPIImage    string
 )

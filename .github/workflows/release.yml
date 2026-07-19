@@ -32,6 +32,12 @@ jobs:
           image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-guestd ko build --bare ./cmd/substrate-guestd)
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
+      - name: Publish substrate-sandbox-api image
+        id: api
+        run: |
+          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-sandbox-api ko build --bare ./cmd/substrate-sandbox-api)
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
       # ateom-gvisor lives in the Substrate repo; build it at the commit
       # pinned in go.mod so the worker matches the client libraries.
       - name: Publish ateom-gvisor image
@@ -49,12 +55,13 @@ jobs:
         env:
           GUESTD_IMAGE: ${{ steps.guestd.outputs.image }}
           ATEOM_IMAGE: ${{ steps.ateom.outputs.image }}
+          API_IMAGE: ${{ steps.api.outputs.image }}
         run: |
           mkdir -p dist
           for os in linux darwin; do
             for arch in amd64 arm64; do
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
-                -ldflags "-s -w -X main.defaultGuestdImage=$GUESTD_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE" \
+                -ldflags "-s -w -X main.defaultGuestdImage=$GUESTD_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE -X main.defaultAPIImage=$API_IMAGE" \
                 -o "dist/sbcli-$os-$arch" ./cmd/sbcli
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
                 -o "dist/substrate-sandbox-api-$os-$arch" ./cmd/substrate-sandbox-api
@@ -70,4 +77,5 @@ jobs:
             --generate-notes \
             --notes "Default deploy images baked into sbcli:
           - \`${{ steps.guestd.outputs.image }}\`
-          - \`${{ steps.ateom.outputs.image }}\`"
+          - \`${{ steps.ateom.outputs.image }}\`
+          - \`${{ steps.api.outputs.image }}\`"

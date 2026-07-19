@@ -9,9 +9,11 @@ import (
 	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
 	ateclientset "github.com/agent-substrate/substrate/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -20,6 +22,16 @@ import (
 // defaultPauseImage is the digest-pinned pause image recommended by the
 // Substrate ActorTemplate documentation for off-GCP clusters.
 const defaultPauseImage = "registry.k8s.io/pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4"
+
+// apiName is the name of the REST API Deployment and Service.
+const apiName = "substrate-sandbox-api"
+
+// In-cluster addresses of the Substrate control plane and router, used by
+// the deployed REST API.
+const (
+	inClusterAteapi = "ateapi.ate-system.svc:443"
+	inClusterAtenet = "atenet-router.ate-system.svc:80"
+)
 
 type deployConfig struct {
 	namespace         string
@@ -30,6 +42,8 @@ type deployConfig struct {
 	pauseImage        string
 	snapshotsLocation string
 	replicas          int32
+	apiImage          string
+	apiReplicas       int32
 	guestdCommand     []string
 	waitForReady      time.Duration
 	poolLabels        map[string]string
@@ -45,8 +59,8 @@ func newDeployCommand(namespace, template *string) *cobra.Command {
 		Short: "Deploy the system to a cluster running Agent Substrate",
 		Long: `Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
-WorkerPool of pre-warmed workers, and the ActorTemplate that sandboxes
-are created from.
+WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
+created from, and the substrate-sandbox-api REST service.
 
 Released sbcli binaries embed digest-pinned default images for the guest
 daemon and the worker, so only --snapshots-location is required:
@@ -91,6 +105,8 @@ push them with ko:
 	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", defaultAteomImage, "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
 	cmd.Flags().StringVar(&cfg.snapshotsLocation, "snapshots-location", "", "object-storage location for suspend snapshots, e.g. gs://bucket/prefix/")
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
+	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "substrate-sandbox-api image for the REST service")
+	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of REST service replicas")
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
 	cmd.Flags().Int32Var(&cfg.replicas, "replicas", 2, "number of pre-warmed worker pods")
 	cmd.Flags().StringSliceVar(&cfg.guestdCommand, "guestd-command", []string{"/ko-app/substrate-guestd", "-workdir", "/workspace"}, "guestd container entrypoint")
@@ -102,10 +118,10 @@ push them with ko:
 	return cmd
 }
 
-// resolveImages verifies that both deployment images are set, either baked
+// resolveImages verifies that all deployment images are set, either baked
 // in at release time or passed as flags.
 func (c *deployConfig) resolveImages() error {
-	if c.guestdImage != "" && c.ateomImage != "" {
+	if c.guestdImage != "" && c.ateomImage != "" && c.apiImage != "" {
 		return nil
 	}
 	return errors.New(`no default images are baked into this build of sbcli (they are set when
@@ -114,6 +130,7 @@ sbcli is built by a release); pass the images explicitly:
   export KO_DOCKER_REPO=<your-registry>
   sbcli system deploy \
     --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
+    --api-image    $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-api) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     ...`)
 }
@@ -154,6 +171,12 @@ func runDeploy(ctx context.Context, cmd *cobra.Command, kube kubernetes.Interfac
 		return err
 	}
 	cmd.Printf("actortemplate %s/%s applied\n", cfg.namespace, cfg.template)
+
+	if err := applyAPI(ctx, kube, cfg); err != nil {
+		return err
+	}
+	cmd.Printf("api %s/%s applied (%d replicas); reach it with: kubectl port-forward -n %s svc/%s 8081:80\n",
+		cfg.namespace, apiName, cfg.apiReplicas, cfg.namespace, apiName)
 
 	if cfg.waitForReady <= 0 {
 		return nil
@@ -253,6 +276,94 @@ func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg dep
 	}
 	if err != nil {
 		return fmt.Errorf("applying actortemplate %q: %w", cfg.template, err)
+	}
+	return nil
+}
+
+// applyAPI deploys the substrate-sandbox-api REST service: a Deployment
+// pointed at the in-cluster Substrate endpoints and a Service exposing it
+// on port 80.
+func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) error {
+	labels := map[string]string{"app": apiName}
+	replicas := cfg.apiReplicas
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      apiName,
+			Namespace: cfg.namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{MatchLabels: labels},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  apiName,
+						Image: cfg.apiImage,
+						Args: []string{
+							"-listen", ":8081",
+							"-ateapi", inClusterAteapi,
+							"-atenet", inClusterAtenet,
+						},
+						Ports: []corev1.ContainerPort{{ContainerPort: 8081}},
+						ReadinessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/healthz",
+									Port: intstr.FromInt32(8081),
+								},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+	deployments := kube.AppsV1().Deployments(cfg.namespace)
+	_, err := deployments.Create(ctx, deployment, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		existing, getErr := deployments.Get(ctx, apiName, metav1.GetOptions{})
+		if getErr != nil {
+			return fmt.Errorf("getting deployment %q: %w", apiName, getErr)
+		}
+		existing.Labels = labels
+		existing.Spec = deployment.Spec
+		_, err = deployments.Update(ctx, existing, metav1.UpdateOptions{})
+	}
+	if err != nil {
+		return fmt.Errorf("applying deployment %q: %w", apiName, err)
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      apiName,
+			Namespace: cfg.namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{{
+				Port:       80,
+				TargetPort: intstr.FromInt32(8081),
+			}},
+		},
+	}
+	services := kube.CoreV1().Services(cfg.namespace)
+	_, err = services.Create(ctx, service, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		existing, getErr := services.Get(ctx, apiName, metav1.GetOptions{})
+		if getErr != nil {
+			return fmt.Errorf("getting service %q: %w", apiName, getErr)
+		}
+		// Update in place to preserve the allocated ClusterIP.
+		existing.Labels = labels
+		existing.Spec.Selector = service.Spec.Selector
+		existing.Spec.Ports = service.Spec.Ports
+		_, err = services.Update(ctx, existing, metav1.UpdateOptions{})
+	}
+	if err != nil {
+		return fmt.Errorf("applying service %q: %w", apiName, err)
 	}
 	return nil
 }
