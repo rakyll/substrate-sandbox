@@ -132,7 +132,7 @@ sb, err := client.Create(ctx, "dev1")
 if err != nil {
     log.Fatalf("creating sandbox: %v", err)
 }
-if err := sb.WriteFile(ctx, "/workspace/main.go", src, 0o644); err != nil {
+if err := sb.WriteFile(ctx, "/workspace/main.go", bytes.NewReader(src), 0o644); err != nil {
     log.Fatalf("writing main.go: %v", err)
 }
 res, err := sb.Cmd(ctx, "cd /workspace && go run main.go")

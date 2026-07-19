@@ -63,15 +63,25 @@ func (s *Sandbox) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	return data, nil
 }
 
-// WriteFile writes data to the file at path inside the sandbox with the
-// given permissions, creating parent directories as needed.
-func (s *Sandbox) WriteFile(ctx context.Context, path string, data []byte, mode fs.FileMode) error {
+// WriteFile writes the contents of r to the file at path inside the
+// sandbox with the given permissions, creating parent directories as
+// needed. If r is not an io.ReadSeeker, it is buffered in memory so the
+// request can be retried after an auto-resume.
+func (s *Sandbox) WriteFile(ctx context.Context, path string, r io.Reader, mode fs.FileMode) error {
+	body, ok := r.(io.ReadSeeker)
+	if !ok {
+		data, err := io.ReadAll(r)
+		if err != nil {
+			return fmt.Errorf("sandbox: reading data for %q: %w", path, err)
+		}
+		body = bytes.NewReader(data)
+	}
 	q := url.Values{
 		"path":   {path},
 		"mode":   {strconv.FormatUint(uint64(mode.Perm()), 8)},
 		"mkdirs": {"true"},
 	}
-	resp, err := s.guestDo(ctx, http.MethodPut, "/v1/fs/file", q, "application/octet-stream", bytes.NewReader(data))
+	resp, err := s.guestDo(ctx, http.MethodPut, "/v1/fs/file", q, "application/octet-stream", body)
 	if err != nil {
 		return err
 	}

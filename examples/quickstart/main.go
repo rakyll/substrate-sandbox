@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/rakyll/substrate-sandbox/sandbox"
 )
@@ -39,7 +40,7 @@ func main() {
 
 	// Write a script into the sandbox and run it.
 	script := "#!/bin/sh\necho \"hello from $(hostname)\"\ndate > /workspace/last-run\n"
-	if err := sb.WriteFile(ctx, "/workspace/hello.sh", []byte(script), 0o755); err != nil {
+	if err := sb.WriteFile(ctx, "/workspace/hello.sh", strings.NewReader(script), 0o755); err != nil {
 		log.Fatal(err)
 	}
 	res, err := sb.Cmd(ctx, "/workspace/hello.sh")

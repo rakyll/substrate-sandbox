@@ -226,12 +226,7 @@ func (s *server) writeFile(w http.ResponseWriter, r *http.Request) {
 		}
 		mode = fs.FileMode(v)
 	}
-	data, err := io.ReadAll(r.Body)
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	if err := s.client.Sandbox(r.PathValue("id")).WriteFile(r.Context(), q.Get("path"), data, mode); err != nil {
+	if err := s.client.Sandbox(r.PathValue("id")).WriteFile(r.Context(), q.Get("path"), r.Body, mode); err != nil {
 		writeErr(w, err)
 		return
 	}

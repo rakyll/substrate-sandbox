@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -210,11 +211,13 @@ func main() {
 		Short: "Write stdin to a sandbox file",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Buffer stdin: pipes are not seekable, so passing os.Stdin
+			// directly would defeat the auto-resume retry.
 			data, err := io.ReadAll(os.Stdin)
 			if err != nil {
 				return err
 			}
-			return client.Sandbox(args[0]).WriteFile(cmd.Context(), args[1], data, 0o644)
+			return client.Sandbox(args[0]).WriteFile(cmd.Context(), args[1], bytes.NewReader(data), 0o644)
 		},
 	})
 

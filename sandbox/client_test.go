@@ -3,6 +3,7 @@ package sandbox_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
@@ -171,7 +172,7 @@ func TestCmdAndFilesystem(t *testing.T) {
 	sb := f.create(t, "sb-fs")
 	ctx := t.Context()
 
-	if err := sb.WriteFile(ctx, "project/hello.txt", []byte("hi there"), 0o644); err != nil {
+	if err := sb.WriteFile(ctx, "project/hello.txt", strings.NewReader("hi there"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	data, err := sb.ReadFile(ctx, "project/hello.txt")
@@ -253,7 +254,7 @@ func TestAutoResumeRetriesGuestOps(t *testing.T) {
 	if err := sb.Suspend(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := sb.WriteFile(ctx, "wake.txt", []byte("resumed write"), 0o644); err != nil {
+	if err := sb.WriteFile(ctx, "wake.txt", strings.NewReader("resumed write"), 0o644); err != nil {
 		t.Fatalf("write with auto-resume: %v", err)
 	}
 	data, err := sb.ReadFile(ctx, "wake.txt")
