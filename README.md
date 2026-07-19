@@ -1,9 +1,8 @@
 # substrate-sandbox
 
 A sandboxing service on top of [Agent Substrate](https://github.com/agent-substrate/substrate): isolated, stateful execution environments
-that can be **suspended** (full memory + filesystem snapshot to object
-storage), **resumed** on any available worker, and driven remotely with
-**command execution** and **filesystem operations**.
+that can be **suspended**, **resumed** on any available worker,
+and driven remotely with **command execution** and **filesystem operations**.
 
 Each sandbox is a Substrate *actor* running in an isolated container.
 Substrate provides the heavy lifting — snapshotting, scheduling,
