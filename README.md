@@ -190,7 +190,7 @@ Each returns the sandbox's new status: `{"id": "...", "status": "suspended", ...
 {                                           {
   "command": ["sh", "-c", "make test"],       "stdout": "ok\n",
   "cwd": "/workspace/app",                    "stderr": "",
-  "env": {"CI": "true"},                      "exitCode": 0,
+  "env": {"VERBOSE_LOGS": "true"},            "exitCode": 0,
   "timeout": "60s"                            "duration": "1.2s"
 }                                           }
 ```
