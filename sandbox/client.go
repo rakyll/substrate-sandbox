@@ -151,19 +151,6 @@ func (c *Client) Sandbox(id string) *Sandbox {
 	return &Sandbox{id: id, client: c}
 }
 
-// List returns information about all sandboxes known to the service.
-func (c *Client) List(ctx context.Context) ([]Info, error) {
-	var resp api.ListSandboxesResponse
-	if err := c.doJSON(ctx, http.MethodGet, "/v1/sandboxes", nil, nil, &resp); err != nil {
-		return nil, err
-	}
-	infos := make([]Info, 0, len(resp.Sandboxes))
-	for _, s := range resp.Sandboxes {
-		infos = append(infos, infoFromAPI(s))
-	}
-	return infos, nil
-}
-
 // do performs an HTTP request against the API service. Non-2xx responses
 // are converted to errors.
 func (c *Client) do(ctx context.Context, method, path string, query url.Values, contentType string, body io.Reader) (*http.Response, error) {

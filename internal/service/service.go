@@ -41,7 +41,6 @@ func Handler(client *direct.Client) http.Handler {
 		io.WriteString(w, "ok")
 	})
 	mux.HandleFunc("POST /v1/sandboxes", s.create)
-	mux.HandleFunc("GET /v1/sandboxes", s.list)
 	mux.HandleFunc("GET /v1/sandboxes/{id}", s.get)
 	mux.HandleFunc("DELETE /v1/sandboxes/{id}", s.delete)
 	mux.HandleFunc("POST /v1/sandboxes/{id}/suspend", s.lifecycle((*direct.Sandbox).Suspend))
@@ -121,19 +120,6 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, toSandboxInfo(info))
-}
-
-func (s *server) list(w http.ResponseWriter, r *http.Request) {
-	infos, err := s.client.List(r.Context())
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	out := make([]api.SandboxInfo, 0, len(infos))
-	for _, info := range infos {
-		out = append(out, toSandboxInfo(info))
-	}
-	writeJSON(w, http.StatusOK, api.ListSandboxesResponse{Sandboxes: out})
 }
 
 func (s *server) get(w http.ResponseWriter, r *http.Request) {

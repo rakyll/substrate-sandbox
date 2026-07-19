@@ -144,30 +144,6 @@ func TestOpenMissingSandbox(t *testing.T) {
 	}
 }
 
-func TestList(t *testing.T) {
-	f := newFixture(t, false)
-	f.create(t, "sb-a")
-	f.create(t, "sb-b", direct.WithoutStart())
-
-	infos, err := f.client.List(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(infos) != 2 {
-		t.Fatalf("got %d sandboxes, want 2: %+v", len(infos), infos)
-	}
-	byID := map[string]direct.Info{}
-	for _, info := range infos {
-		byID[info.ID] = info
-	}
-	if byID["sb-a"].Status != direct.StatusRunning {
-		t.Errorf("sb-a status = %s, want running", byID["sb-a"].Status)
-	}
-	if byID["sb-b"].Status != direct.StatusSuspended {
-		t.Errorf("sb-b status = %s, want suspended", byID["sb-b"].Status)
-	}
-}
-
 func TestCmdAndFilesystem(t *testing.T) {
 	f := newFixture(t, false)
 	sb := f.create(t, "sb-fs")

@@ -217,19 +217,10 @@ func TestAutoResumeOnCmd(t *testing.T) {
 	}
 }
 
-func TestListAndOpen(t *testing.T) {
+func TestOpen(t *testing.T) {
 	f := newFixture(t)
 	f.create(t, "sb-a")
-	f.create(t, "sb-b")
 	ctx := t.Context()
-
-	infos, err := f.client.List(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(infos) != 2 {
-		t.Fatalf("list = %d sandboxes, want 2", len(infos))
-	}
 
 	if _, err := f.client.Open(ctx, "sb-a"); err != nil {
 		t.Errorf("open sb-a: %v", err)

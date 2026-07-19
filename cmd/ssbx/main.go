@@ -83,24 +83,6 @@ func main() {
 	})
 
 	root.AddCommand(&cobra.Command{
-		Use:   "ls",
-		Short: "List sandboxes",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			infos, err := client.List(cmd.Context())
-			if err != nil {
-				return err
-			}
-			tw := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
-			fmt.Fprintln(tw, "ID\tSTATUS\tTEMPLATE")
-			for _, info := range infos {
-				fmt.Fprintf(tw, "%s\t%s\t%s/%s\n", info.ID, info.Status, info.Namespace, info.Template)
-			}
-			return tw.Flush()
-		},
-	})
-
-	root.AddCommand(&cobra.Command{
 		Use:   "info <id>",
 		Short: "Show a sandbox's status",
 		Args:  cobra.ExactArgs(1),

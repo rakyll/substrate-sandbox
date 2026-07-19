@@ -113,11 +113,6 @@ type SandboxInfo struct {
 	WorkerPodIP        string `json:"workerPodIP,omitempty"`
 }
 
-// ListSandboxesResponse is the body of GET /v1/sandboxes.
-type ListSandboxesResponse struct {
-	Sandboxes []SandboxInfo `json:"sandboxes"`
-}
-
 // FSRequest is the body of the filesystem endpoints
 // (POST /v1/sandboxes/{id}/{file,dir,stat}).
 type FSRequest struct {

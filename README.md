@@ -92,7 +92,6 @@ Available Commands:
   deploy      Deploy the system to a cluster running Agent Substrate
   fs          Operate on files and directories in a sandbox
   info        Show a sandbox's status
-  ls          List sandboxes
   pause       Snapshot locally on the node for fast resume
   resume      Resume from the latest snapshot
   suspend     Snapshot to external storage and free the worker
@@ -160,7 +159,6 @@ run standalone (default `0.0.0.0:7777`). Responses are JSON unless noted.
 | Method   | Path                 | Description                            |
 | -------- | -------------------- | -------------------------------------- |
 | `POST`   | `/v1/sandboxes`      | Create a sandbox                        |
-| `GET`    | `/v1/sandboxes`      | List sandboxes                          |
 | `GET`    | `/v1/sandboxes/{id}` | Get a sandbox's status                  |
 | `DELETE` | `/v1/sandboxes/{id}` | Delete (suspends first if running)      |
 

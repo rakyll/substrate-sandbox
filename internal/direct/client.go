@@ -233,29 +233,6 @@ func (c *Client) Sandbox(id string) *Sandbox {
 	return &Sandbox{id: id, client: c}
 }
 
-// List returns information about all sandboxes known to the control plane.
-func (c *Client) List(ctx context.Context) ([]Info, error) {
-	var infos []Info
-	var pageToken string
-	for {
-		resp, err := c.control.ListActors(ctx, &ateapipb.ListActorsRequest{
-			Atespace:  c.opts.Atespace,
-			PageSize:  500,
-			PageToken: pageToken,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("sandbox: listing sandboxes: %w", wrapGRPCError(err))
-		}
-		for _, a := range resp.GetActors() {
-			infos = append(infos, infoFromActor(a))
-		}
-		pageToken = resp.GetNextPageToken()
-		if pageToken == "" {
-			return infos, nil
-		}
-	}
-}
-
 func wrapGRPCError(err error) error {
 	if status.Code(err) == codes.NotFound {
 		return fmt.Errorf("%w: %s", ErrNotFound, status.Convert(err).Message())
