@@ -11,14 +11,14 @@ Substrate provides the heavy lifting — snapshotting, scheduling,
 multiplexing many idle sandboxes onto a small worker pool, and routing —
 while this project adds the sandbox-shaped API on top.
 
-## Architecture
+## Overview
 
 ```
                  lifecycle (create/suspend/resume/delete)
-   ┌──────────┐   gRPC   ┌────────────┐
+   ┌──────────┐          ┌────────────┐
    │ SDK      ├─────────▶│   ateapi   │  Substrate control plane
-   │  sbcli   │          └────────────┘
-   │ sandboxd │   HTTP   ┌────────────┐      ┌──────────────────────┐
+   │ sbcli    │          └────────────┘
+   │ sandboxd │          ┌────────────┐      ┌──────────────────────┐
    └──────────┘─────────▶│   atenet   ├─────▶│ actor (gVisor)       │
                  exec/fs │   router   │      │  └ substrate-guestd  │
        Host: <id>.actors.└────────────┘      │     /v1/exec         │
