@@ -98,7 +98,6 @@ sb, err := client.Create(ctx, "sandbox-dev")
 if err != nil {
     log.Fatalf("creating sandbox: %v", err)
 }
-
 if err := sb.WriteFile(ctx, "/workspace/main.go", src, 0o644); err != nil {
     log.Fatalf("writing main.go: %v", err)
 }
@@ -108,15 +107,9 @@ if err != nil {
 }
 fmt.Println(res.Stdout, res.ExitCode)
 
-if err := sb.Suspend(ctx); err != nil {
-    log.Fatalf("suspending sandbox: %v", err)
-}
-if err := sb.Resume(ctx); err != nil { // restore on any available worker
-    log.Fatalf("resuming sandbox: %v", err)
-}
-if err := sb.Delete(ctx); err != nil { // suspends first if needed, then deletes
-    log.Fatalf("deleting sandbox: %v", err)
-}
+sb.Suspend(ctx)
+b.Resume(ctx)
+sb.Delete(ctx)
 ```
 
 See [examples/quickstart](examples/quickstart/main.go) for a complete
