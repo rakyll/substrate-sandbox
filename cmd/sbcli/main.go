@@ -63,7 +63,7 @@ func main() {
 	}
 	root.PersistentFlags().StringVar(&ateapi, "ateapi", envOr("SBCLI_ATEAPI", "localhost:8080"), "address of the ateapi gRPC control plane")
 	root.PersistentFlags().StringVar(&atenet, "atenet", envOr("SBCLI_ATENET", "localhost:8000"), "address of the atenet HTTP router")
-	root.PersistentFlags().StringVar(&template, "template", "", "ActorTemplate name (for create)")
+	root.PersistentFlags().StringVar(&template, "template", "sandbox", "ActorTemplate name (for create)")
 	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
 	root.PersistentFlags().BoolVar(&skipVerify, "skip-verify", true, "skip TLS certificate verification on the control plane connection")
 

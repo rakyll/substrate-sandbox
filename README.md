@@ -50,15 +50,14 @@ export KO_DOCKER_REPO=gcr.io/<your-project>
 sbcli deploy \
   --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
   --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
-  --snapshots-location gs://<your-bucket>/substrate-sandbox/ \
-  --template sandbox --namespace substrate-sandbox
+  --snapshots-location gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the Substrate control plane and router.
 kubectl port-forward -n ate-system svc/ateapi 8080:443 &
 kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 
 # 3. Create and use a sandbox.
-sbcli create sandbox-dev --template sandbox --namespace substrate-sandbox
+sbcli create sandbox-dev
 sbcli cmd sandbox-dev 'echo hello > /workspace/note.txt'
 sbcli suspend sandbox-dev
 sbcli cmd sandbox-dev 'cat /workspace/note.txt' # auto-resumes; prints hello
@@ -69,8 +68,7 @@ Or run the REST service:
 
 ```bash
 substrate-sandboxd
-curl -X POST localhost:8081/v1/sandboxes \
-     -d '{"id":"sandbox-dev","template":"sandbox","namespace":"substrate-sandbox"}'
+curl -X POST localhost:8081/v1/sandboxes -d '{"id":"sandbox-dev"}'
 curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/cmd \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
@@ -111,7 +109,6 @@ client, err := sandbox.New(sandbox.Options{
     ControlAddr: "localhost:8080",              // ateapi gRPC
     RouterAddr:  "localhost:8000",              // atenet router
     Template:    "sandbox",                     // ActorTemplate name
-    Namespace:   "substrate-sandbox",           // its Kubernetes namespace
     SkipVerify:  true,                          // ateapi uses pod certs
     AutoResume:  true,                          // wake sandboxes on use
 })
@@ -159,14 +156,14 @@ JSON unless noted.
 | `GET`    | `/v1/sandboxes/{id}` | Get a sandbox's status                  |
 | `DELETE` | `/v1/sandboxes/{id}` | Delete (suspends first if running)      |
 
-Create body:
+Create body (only `id` is required):
 
 ```json
 {
   "id": "sandbox-dev",
-  "template": "sandbox",
-  "namespace": "substrate-sandbox",
-  "start": true
+  "template": "sandbox",  // defaults to "sandbox"
+  "namespace": "default", // defaults to "default"
+  "start": true           // defaults to true
 }
 ```
 

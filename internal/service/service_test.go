@@ -158,9 +158,13 @@ func TestRESTValidation(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("create without id status = %d, want 400", resp.StatusCode)
 	}
-	resp = do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"no-template"}`)
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("create without template status = %d, want 400", resp.StatusCode)
+	// Omitting template and namespace falls back to the defaults.
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"bare"}`)
+	if resp.StatusCode != http.StatusCreated {
+		t.Errorf("create with defaults status = %d, want 201", resp.StatusCode)
+	}
+	if got := decode[service.SandboxInfo](t, resp); got.Template != "default/"+service.DefaultTemplate {
+		t.Errorf("template with defaults = %q, want %q", got.Template, "default/"+service.DefaultTemplate)
 	}
 	resp = do(t, "GET", srv.URL+"/v1/sandboxes/absent", "")
 	if resp.StatusCode != http.StatusNotFound {

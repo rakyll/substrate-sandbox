@@ -23,7 +23,6 @@ func main() {
 		ControlAddr: "localhost:8080",
 		RouterAddr:  "localhost:8000",
 		Template:    "sandbox",
-		Namespace:   "substrate-sandbox",
 		SkipVerify:  true, // ateapi serves with pod certificates
 		AutoResume:  true,
 	})

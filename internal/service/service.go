@@ -16,14 +16,18 @@ import (
 	"github.com/rakyll/substrate-sandbox/sandbox"
 )
 
+// DefaultTemplate is the ActorTemplate name used when a create request
+// does not specify one.
+const DefaultTemplate = "sandbox"
+
 // CreateSandboxRequest is the body of POST /v1/sandboxes.
 type CreateSandboxRequest struct {
 	// ID is the sandbox identifier (a DNS-1123 label). Required.
 	ID string `json:"id"`
 
 	// Template is the name of the ActorTemplate the sandbox is created
-	// from. Required.
-	Template string `json:"template"`
+	// from. Defaults to DefaultTemplate.
+	Template string `json:"template,omitempty"`
 
 	// Namespace is the Kubernetes namespace the ActorTemplate lives in.
 	// Defaults to "default".
@@ -116,8 +120,7 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Template == "" {
-		writeBadRequest(w, "template is required")
-		return
+		req.Template = DefaultTemplate
 	}
 	opts := []sandbox.CreateOption{sandbox.WithTemplate(req.Template)}
 	if req.Namespace != "" {
