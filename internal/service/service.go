@@ -85,9 +85,7 @@ func writeBadRequest(w http.ResponseWriter, format string, args ...any) {
 }
 
 func (s *server) create(w http.ResponseWriter, r *http.Request) {
-	// Start defaults to true; decoding leaves it untouched when the
-	// request omits the field.
-	req := api.CreateSandboxRequest{Start: true}
+	var req api.CreateSandboxRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid request body: %v", err)
 		return
@@ -105,9 +103,6 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.WorkerSelector) > 0 {
 		opts = append(opts, direct.WithWorkerSelector(req.WorkerSelector))
-	}
-	if !req.Start {
-		opts = append(opts, direct.WithoutStart())
 	}
 	sb, err := s.client.Create(r.Context(), req.ID, opts...)
 	if err != nil {

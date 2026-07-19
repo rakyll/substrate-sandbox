@@ -160,7 +160,6 @@ type createConfig struct {
 	template          string
 	templateNamespace string
 	workerSelector    map[string]string
-	noStart           bool
 }
 
 // WithTemplate overrides the client's default ActorTemplate name.
@@ -179,15 +178,8 @@ func WithWorkerSelector(matchLabels map[string]string) CreateOption {
 	return func(c *createConfig) { c.workerSelector = matchLabels }
 }
 
-// WithoutStart registers the sandbox without starting it. The sandbox
-// starts on its first Resume (or on first traffic, if the router
-// auto-resumes).
-func WithoutStart() CreateOption {
-	return func(c *createConfig) { c.noStart = true }
-}
-
-// Create registers a new sandbox with the given ID (a DNS-1123 label) and,
-// unless WithoutStart is given, starts it.
+// Create registers a new sandbox with the given ID (a DNS-1123 label) and
+// starts it.
 func (c *Client) Create(ctx context.Context, id string, opts ...CreateOption) (*Sandbox, error) {
 	var cfg createConfig
 	for _, o := range opts {
@@ -214,10 +206,8 @@ func (c *Client) Create(ctx context.Context, id string, opts ...CreateOption) (*
 	}
 
 	sb := &Sandbox{id: id, client: c}
-	if !cfg.noStart {
-		if _, err := c.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{Actor: c.ref(id)}); err != nil {
-			return sb, fmt.Errorf("sandbox: starting %q: %w", id, wrapGRPCError(err))
-		}
+	if _, err := c.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{Actor: c.ref(id)}); err != nil {
+		return sb, fmt.Errorf("sandbox: starting %q: %w", id, wrapGRPCError(err))
 	}
 	return sb, nil
 }

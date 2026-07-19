@@ -84,18 +84,6 @@ func TestCreateStartsSandbox(t *testing.T) {
 	}
 }
 
-func TestCreateWithoutStart(t *testing.T) {
-	f := newFixture(t, false)
-	sb := f.create(t, "sb-cold", direct.WithoutStart())
-
-	info, err := sb.Info(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Status != direct.StatusSuspended {
-		t.Errorf("status = %s, want suspended", info.Status)
-	}
-}
 
 func TestSuspendResumeCycle(t *testing.T) {
 	f := newFixture(t, false)

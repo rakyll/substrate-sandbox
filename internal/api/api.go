@@ -94,10 +94,6 @@ type CreateSandboxRequest struct {
 
 	// WorkerSelector constrains which worker pools can host the sandbox.
 	WorkerSelector map[string]string `json:"workerSelector,omitempty"`
-
-	// Start controls whether the sandbox starts immediately. Defaults to
-	// true when omitted from the request.
-	Start bool `json:"start"`
 }
 
 // SandboxInfo is the JSON representation of a sandbox.

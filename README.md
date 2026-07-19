@@ -168,8 +168,7 @@ Create body (only `id` is required):
 {
   "id": "dev1",
   "template": "sandbox",
-  "namespace": "default",
-  "start": true
+  "namespace": "default"
 }
 ```
 

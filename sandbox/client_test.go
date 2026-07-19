@@ -95,19 +95,6 @@ func TestCreateStartsSandbox(t *testing.T) {
 	}
 }
 
-func TestCreateWithoutStart(t *testing.T) {
-	f := newFixture(t)
-	sb := f.create(t, "sb-cold", sandbox.WithoutStart())
-
-	info, err := sb.Info(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Status != sandbox.StatusSuspended {
-		t.Errorf("status = %s, want suspended", info.Status)
-	}
-}
-
 func TestLifecycle(t *testing.T) {
 	f := newFixture(t)
 	sb := f.create(t, "sb-life")
