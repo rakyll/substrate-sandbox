@@ -29,8 +29,8 @@ type CreateSandboxRequest struct {
 	WorkerSelector map[string]string `json:"workerSelector,omitempty"`
 
 	// Start controls whether the sandbox starts immediately. Defaults to
-	// true.
-	Start *bool `json:"start,omitempty"`
+	// true when omitted from the request.
+	Start bool `json:"start"`
 }
 
 // SandboxInfo is the JSON representation of a sandbox.
@@ -100,7 +100,9 @@ func writeBadRequest(w http.ResponseWriter, format string, args ...any) {
 }
 
 func (s *server) create(w http.ResponseWriter, r *http.Request) {
-	var req CreateSandboxRequest
+	// Start defaults to true; decoding leaves it untouched when the
+	// request omits the field.
+	req := CreateSandboxRequest{Start: true}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid request body: %v", err)
 		return
@@ -117,7 +119,7 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	if len(req.WorkerSelector) > 0 {
 		opts = append(opts, sandbox.WithWorkerSelector(req.WorkerSelector))
 	}
-	if req.Start != nil && !*req.Start {
+	if !req.Start {
 		opts = append(opts, sandbox.WithoutStart())
 	}
 	sb, err := s.client.Create(r.Context(), req.ID, opts...)

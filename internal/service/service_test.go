@@ -135,6 +135,23 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	}
 }
 
+func TestCreateStartDefaults(t *testing.T) {
+	srv, router := newAPI(t)
+	router.Register("started", (&guest.Server{Workdir: t.TempDir()}).Handler())
+
+	// Omitting "start" starts the sandbox.
+	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"started","template":"sandboxes/default"}`)
+	if got := decode[service.SandboxInfo](t, resp); got.Status != "running" {
+		t.Errorf("create without start = %+v, want running", got)
+	}
+
+	// An explicit "start": false registers the sandbox without starting it.
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"cold","template":"sandboxes/default","start":false}`)
+	if got := decode[service.SandboxInfo](t, resp); got.Status != "suspended" {
+		t.Errorf("create with start=false = %+v, want suspended", got)
+	}
+}
+
 func TestRESTValidation(t *testing.T) {
 	srv, _ := newAPI(t)
 
