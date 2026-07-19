@@ -15,12 +15,12 @@ while this project adds the sandbox-shaped API on top.
 ## Overview
 
 ```
- ╭──────────╮   ╭─────────────╮  lifecycle  ╭────────────╮
- │   SDK    │   │             ├────────────▶│   ateapi   │  Substrate control plane
- │ ssbx CLI ├──▶│   Sandbox   │             ╰────────────╯
- ╰──────────╯   │     API     │   cmd/fs    ╭────────────╮     ╭──────────────────────╮
-                │             ├────────────▶│   atenet   ├────▶│ actor                │
-                ╰─────────────╯             │   router   │     │  └ ssbx-guest        │
+ ╭──────────╮   ╭──────────────╮  lifecycle ╭────────────╮
+ │   SDK    │   │              ├───────────▶│   ateapi   │  Substrate control plane
+ │ ssbx CLI ├──▶│   ssbx-api   │            ╰────────────╯
+ ╰──────────╯   │ (API server) │  cmd/fs    ╭────────────╮     ╭──────────────────────╮
+                │              ├───────────▶│   atenet   ├────▶│ actor                │
+                ╰──────────────╯            │   router   │     │  └ ssbx-guest        │
                                             ╰────────────╯     │    /v1/cmd, /v1/fs/* │
                                                                ╰──────────────────────╯
 ```
