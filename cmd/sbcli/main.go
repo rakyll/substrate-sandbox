@@ -197,11 +197,12 @@ func main() {
 		Short: "Print a sandbox file to stdout",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := client.Sandbox(args[0]).ReadFile(cmd.Context(), args[1])
+			rc, err := client.Sandbox(args[0]).ReadFile(cmd.Context(), args[1])
 			if err != nil {
 				return err
 			}
-			_, err = os.Stdout.Write(data)
+			defer rc.Close()
+			_, err = io.Copy(os.Stdout, rc)
 			return err
 		},
 	})

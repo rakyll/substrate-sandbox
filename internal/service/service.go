@@ -206,13 +206,14 @@ func (s *server) cmd(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) readFile(w http.ResponseWriter, r *http.Request) {
-	data, err := s.client.Sandbox(r.PathValue("id")).ReadFile(r.Context(), r.URL.Query().Get("path"))
+	rc, err := s.client.Sandbox(r.PathValue("id")).ReadFile(r.Context(), r.URL.Query().Get("path"))
 	if err != nil {
 		writeErr(w, err)
 		return
 	}
+	defer rc.Close()
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(data)
+	io.Copy(w, rc)
 }
 
 func (s *server) writeFile(w http.ResponseWriter, r *http.Request) {

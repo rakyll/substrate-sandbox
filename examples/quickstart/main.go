@@ -11,6 +11,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
@@ -59,7 +60,12 @@ func main() {
 	if err := sb.Resume(ctx); err != nil {
 		log.Fatal(err)
 	}
-	data, err := sb.ReadFile(ctx, "/workspace/last-run")
+	rc, err := sb.ReadFile(ctx, "/workspace/last-run")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rc.Close()
+	data, err := io.ReadAll(rc)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -3,6 +3,7 @@ package sandbox_test
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -175,7 +176,12 @@ func TestCmdAndFilesystem(t *testing.T) {
 	if err := sb.WriteFile(ctx, "project/hello.txt", strings.NewReader("hi there"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	data, err := sb.ReadFile(ctx, "project/hello.txt")
+	rc, err := sb.ReadFile(ctx, "project/hello.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(rc)
+	rc.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +263,12 @@ func TestAutoResumeRetriesGuestOps(t *testing.T) {
 	if err := sb.WriteFile(ctx, "wake.txt", strings.NewReader("resumed write"), 0o644); err != nil {
 		t.Fatalf("write with auto-resume: %v", err)
 	}
-	data, err := sb.ReadFile(ctx, "wake.txt")
+	rc, err := sb.ReadFile(ctx, "wake.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(rc)
+	rc.Close()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -49,18 +49,14 @@ func (s *Sandbox) Cmd(ctx context.Context, commandLine string) (*CmdResult, erro
 	return s.Run(ctx, CmdRequest{Command: []string{"sh", "-c", commandLine}})
 }
 
-// ReadFile returns the contents of the file at path inside the sandbox.
-func (s *Sandbox) ReadFile(ctx context.Context, path string) ([]byte, error) {
+// ReadFile streams the contents of the file at path inside the sandbox.
+// The caller must close the returned reader.
+func (s *Sandbox) ReadFile(ctx context.Context, path string) (io.ReadCloser, error) {
 	resp, err := s.guestDo(ctx, http.MethodGet, "/v1/fs/file", url.Values{"path": {path}}, "", nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("sandbox: reading %q from %q: %w", path, s.id, err)
-	}
-	return data, nil
+	return resp.Body, nil
 }
 
 // WriteFile writes the contents of r to the file at path inside the
