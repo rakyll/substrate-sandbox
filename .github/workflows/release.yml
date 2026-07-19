@@ -1,7 +1,7 @@
 name: release
 
 # Tagging vX.Y.Z publishes the two deployment images (digest-pinned) and a
-# GitHub release with sbcli/substrate-sandbox-api binaries that have those
+# GitHub release with sbcli/substrate-sandbox binaries that have those
 # image references baked in, so `sbcli deploy` works without ko.
 on:
   push:
@@ -26,16 +26,16 @@ jobs:
       - name: Log in to ghcr.io
         run: echo "${{ github.token }}" | ko login ghcr.io --username "${{ github.actor }}" --password-stdin
 
-      - name: Publish substrate-guest-api image
-        id: guest-api
+      - name: Publish substrate-sandbox-guest image
+        id: guest
         run: |
-          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-guest-api ko build --bare ./cmd/substrate-guest-api)
+          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-sandbox-guest ko build --bare ./cmd/substrate-sandbox-guest)
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
-      - name: Publish substrate-sandbox-api image
+      - name: Publish substrate-sandbox image
         id: api
         run: |
-          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-sandbox-api ko build --bare ./cmd/substrate-sandbox-api)
+          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-sandbox ko build --bare ./cmd/substrate-sandbox)
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
       # ateom-gvisor lives in the Substrate repo; build it at the commit
@@ -53,7 +53,7 @@ jobs:
 
       - name: Build binaries
         env:
-          GUEST_API_IMAGE: ${{ steps.guest-api.outputs.image }}
+          GUEST_IMAGE: ${{ steps.guest.outputs.image }}
           ATEOM_IMAGE: ${{ steps.ateom.outputs.image }}
           API_IMAGE: ${{ steps.api.outputs.image }}
         run: |
@@ -61,10 +61,10 @@ jobs:
           for os in linux darwin; do
             for arch in amd64 arm64; do
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
-                -ldflags "-s -w -X main.defaultGuestAPIImage=$GUEST_API_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE -X main.defaultAPIImage=$API_IMAGE" \
+                -ldflags "-s -w -X main.defaultGuestImage=$GUEST_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE -X main.defaultAPIImage=$API_IMAGE" \
                 -o "dist/sbcli-$os-$arch" ./cmd/sbcli
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
-                -o "dist/substrate-sandbox-api-$os-$arch" ./cmd/substrate-sandbox-api
+                -o "dist/substrate-sandbox-$os-$arch" ./cmd/substrate-sandbox
             done
           done
 
@@ -76,7 +76,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes="Default deploy images baked into sbcli:
-          - \`${{ steps.guest-api.outputs.image }}\`
+          - \`${{ steps.guest.outputs.image }}\`
           - \`${{ steps.ateom.outputs.image }}\`
           - \`${{ steps.api.outputs.image }}\`"
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

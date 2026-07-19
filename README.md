@@ -18,19 +18,19 @@ while this project adds the sandbox-shaped API on top.
  ╭─────────╮    ╭─────────────╮  lifecycle  ╭────────────╮
  │   SDK   │    │             ├────────────▶│   ateapi   │  Substrate control plane
  │   CLI   ├───▶│   Sandbox   │             ╰────────────╯
- ╰─────────╯    │     API     │   cmd/fs    ╭────────────╮     ╭─────────────────────────╮
-                │             ├────────────▶│   atenet   ├────▶│ actor                   │
-                ╰─────────────╯             │   router   │     │  └ substrate-guest-api  │
-                                            ╰────────────╯     │    /v1/cmd, /v1/fs/*    │
-                                                               ╰─────────────────────────╯
+ ╰─────────╯    │     API     │   cmd/fs    ╭────────────╮     ╭────────────────────────────╮
+                │             ├────────────▶│   atenet   ├────▶│ actor                      │
+                ╰─────────────╯             │   router   │     │  └ substrate-sandbox-guest │
+                                            ╰────────────╯     │    /v1/cmd, /v1/fs/*       │
+                                                               ╰────────────────────────────╯
 ```
 
 - **`sandbox/`** — the Go SDK, a client of the REST API. Allows creation, suspension,
 resumption, and deletion of sandboxes; as well as file operations and running remote
 commands on the sandboxes.
-- **`cmd/substrate-sandbox-api`** — the REST service. It bridges clients to
+- **`cmd/substrate-sandbox`** — the REST service. It bridges clients to
   the Substrate control plane and router.
-- **`cmd/substrate-guest-api`** — the daemon server available in the sandbox. It runs
+- **`cmd/substrate-sandbox-guest`** — the daemon server available in the sandbox. It runs
   inside every actor and serves command executions and filesystem operations.
 
 ## Installation
@@ -56,7 +56,7 @@ README) and a snapshots bucket.
 sbcli deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the sandbox API.
-kubectl port-forward svc/substrate-sandbox-api 7777:7777 &
+kubectl port-forward svc/substrate-sandbox 7777:7777 &
 
 # 3. Create and use a sandbox.
 sbcli sandbox create dev1
@@ -110,14 +110,14 @@ $ sbcli deploy --help
 Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
-created from, and the substrate-sandbox-api REST service.
+created from, and the substrate-sandbox REST service.
 ```
 
 ## SDK
 
 ```go
 client, err := sandbox.NewClient(sandbox.ClientOptions{
-    Endpoint: "http://localhost:7777",          // substrate-sandbox-api
+    Endpoint: "http://localhost:7777",          // substrate-sandbox
     Template: "sandbox",                        // ActorTemplate name
 })
 if err != nil {
@@ -148,8 +148,8 @@ program.
 
 ## API
 
-`substrate-sandbox-api` serves the REST API. `sbcli deploy` runs it
-in-cluster as the `substrate-sandbox-api` service (port 7777); it can also be
+`substrate-sandbox` serves the REST API. `sbcli deploy` runs it
+in-cluster as the `substrate-sandbox` service (port 7777); it can also be
 run standalone (default `0.0.0.0:7777`). Responses are JSON unless noted.
 
 ### Sandboxes

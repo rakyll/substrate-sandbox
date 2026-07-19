@@ -24,7 +24,7 @@ import (
 const defaultPauseImage = "registry.k8s.io/pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4"
 
 // apiName is the name of the REST API Deployment and Service.
-const apiName = "substrate-sandbox-api"
+const apiName = "substrate-sandbox"
 
 // In-cluster addresses of the Substrate control plane and router, used by
 // the deployed REST API.
@@ -37,14 +37,14 @@ type deployConfig struct {
 	namespace       string
 	template        string
 	workerPool      string
-	guestAPIImage   string
+	guestImage   string
 	ateomImage      string
 	pauseImage      string
 	snapshotsBucket string
 	replicas        int32
 	apiImage        string
 	apiReplicas     int32
-	guestAPICommand []string
+	guestCommand []string
 	waitForReady    time.Duration
 	poolLabels      map[string]string
 	kubeconfig      string
@@ -60,7 +60,7 @@ func newDeployCommand(namespace, template *string) *cobra.Command {
 		Long: `Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
-created from, and the substrate-sandbox-api REST service.
+created from, and the substrate-sandbox REST service.
 
 Released sbcli binaries embed digest-pinned default images for the guest
 daemon and the worker, so only --snapshots-bucket is required:
@@ -74,7 +74,7 @@ push them with ko:
 
   export KO_DOCKER_REPO=gcr.io/<your-project>
   sbcli deploy \
-    --guest-api-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guest-api) \
+    --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-guest) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     --snapshots-bucket gs://<bucket>/substrate-sandbox/ \
     --template sandbox --namespace substrate-sandbox`,
@@ -101,15 +101,15 @@ push them with ko:
 		},
 	}
 
-	cmd.Flags().StringVar(&cfg.guestAPIImage, "guest-api-image", defaultGuestAPIImage, "digest-pinned substrate-guest-api image (repo@sha256:...)")
+	cmd.Flags().StringVar(&cfg.guestImage, "guest-image", defaultGuestImage, "digest-pinned substrate-sandbox-guest image (repo@sha256:...)")
 	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", defaultAteomImage, "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
 	cmd.Flags().StringVar(&cfg.snapshotsBucket, "snapshots-bucket", "", "object-storage bucket (with optional prefix) for suspend snapshots, e.g. gs://bucket/prefix/")
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
-	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "substrate-sandbox-api image for the REST service")
+	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "substrate-sandbox image for the REST service")
 	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of REST service replicas")
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
 	cmd.Flags().Int32Var(&cfg.replicas, "replicas", 2, "number of pre-warmed worker pods")
-	cmd.Flags().StringSliceVar(&cfg.guestAPICommand, "guest-api-command", []string{"/ko-app/substrate-guest-api", "-workdir", "/workspace"}, "guest-api container entrypoint")
+	cmd.Flags().StringSliceVar(&cfg.guestCommand, "guest-command", []string{"/ko-app/substrate-sandbox-guest", "-workdir", "/workspace"}, "guest container entrypoint")
 	cmd.Flags().DurationVar(&cfg.waitForReady, "wait", 5*time.Minute, "how long to wait for the ActorTemplate to become Ready (0 to skip)")
 	cmd.Flags().StringVar(&cfg.kubeconfig, "kubeconfig", "", "path to the kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)")
 	cmd.Flags().StringVar(&cfg.kubeContext, "kube-context", "", "kubeconfig context to use")
@@ -121,7 +121,7 @@ push them with ko:
 // resolveImages verifies that all deployment images are set, either baked
 // in at release time or passed as flags.
 func (c *deployConfig) resolveImages() error {
-	if c.guestAPIImage != "" && c.ateomImage != "" && c.apiImage != "" {
+	if c.guestImage != "" && c.ateomImage != "" && c.apiImage != "" {
 		return nil
 	}
 	return errors.New(`no default images are baked into this build of sbcli (they are set when
@@ -129,8 +129,8 @@ sbcli is built by a release); pass the images explicitly:
 
   export KO_DOCKER_REPO=<your-registry>
   sbcli deploy \
-    --guest-api-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guest-api) \
-    --api-image    $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-api) \
+    --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-guest) \
+    --api-image    $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     ...`)
 }
@@ -245,9 +245,9 @@ func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg dep
 				MatchLabels: cfg.poolLabels,
 			},
 			Containers: []atev1alpha1.Container{{
-				Name:    "guest-api",
-				Image:   cfg.guestAPIImage,
-				Command: cfg.guestAPICommand,
+				Name:    "guest",
+				Image:   cfg.guestImage,
+				Command: cfg.guestCommand,
 				Env: []atev1alpha1.EnvVar{{
 					Name:  "PORT",
 					Value: &port,
@@ -280,7 +280,7 @@ func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg dep
 	return nil
 }
 
-// applyAPI deploys the substrate-sandbox-api REST service: a Deployment
+// applyAPI deploys the substrate-sandbox REST service: a Deployment
 // pointed at the in-cluster Substrate endpoints and a Service exposing it
 // on port 80.
 func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) error {

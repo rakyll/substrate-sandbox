@@ -2,9 +2,9 @@
 // sandbox, write and run code in it, suspend it, then resume and observe
 // that its filesystem survived the hibernation cycle.
 //
-// It expects a port-forward to the substrate-sandbox-api service:
+// It expects a port-forward to the substrate-sandbox service:
 //
-//	kubectl port-forward svc/substrate-sandbox-api 7777:7777
+//	kubectl port-forward svc/substrate-sandbox 7777:7777
 package main
 
 import (
