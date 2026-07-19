@@ -21,8 +21,8 @@ import (
 // ErrNotFound is returned when a sandbox, file, or directory does not exist.
 var ErrNotFound = errors.New("not found")
 
-// Options configures a Client.
-type Options struct {
+// ClientOptions configures a Client.
+type ClientOptions struct {
 	// Endpoint is the base URL of the substrate-sandbox-api REST service,
 	// e.g. "http://localhost:8081" (typically a port-forward of
 	// svc/substrate-sandbox-api). A bare host:port implies http.
@@ -43,15 +43,15 @@ type Options struct {
 
 // Client manages sandboxes through the substrate-sandbox-api service.
 type Client struct {
-	opts     Options
+	opts     ClientOptions
 	endpoint string
 	http     *http.Client
 }
 
-// New creates a Client.
-func New(opts Options) (*Client, error) {
+// NewClient creates a Client.
+func NewClient(opts ClientOptions) (*Client, error) {
 	if opts.Endpoint == "" {
-		return nil, errors.New("sandbox: Options.Endpoint is required")
+		return nil, errors.New("sandbox: ClientOptions.Endpoint is required")
 	}
 	endpoint := opts.Endpoint
 	if !strings.Contains(endpoint, "://") {

@@ -44,7 +44,7 @@ func main() {
 				return nil
 			}
 			var err error
-			client, err = sandbox.New(sandbox.Options{
+			client, err = sandbox.NewClient(sandbox.ClientOptions{
 				Endpoint:  endpoint,
 				Template:  template,
 				Namespace: namespace,

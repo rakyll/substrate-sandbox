@@ -116,7 +116,7 @@ Available Commands:
 ## SDK
 
 ```go
-client, err := sandbox.New(sandbox.Options{
+client, err := sandbox.NewClient(sandbox.ClientOptions{
     Endpoint: "http://localhost:8081",          // substrate-sandbox-api
     Template: "sandbox",                        // ActorTemplate name
 })

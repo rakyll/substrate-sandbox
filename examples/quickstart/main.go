@@ -20,7 +20,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	client, err := sandbox.New(sandbox.Options{
+	client, err := sandbox.NewClient(sandbox.ClientOptions{
 		Endpoint: "http://localhost:8081",
 		Template: "sandbox",
 	})

@@ -55,7 +55,7 @@ func newFixture(t *testing.T) *fixture {
 	srv := httptest.NewServer(service.Handler(directClient))
 	t.Cleanup(srv.Close)
 
-	client, err := sandbox.New(sandbox.Options{
+	client, err := sandbox.NewClient(sandbox.ClientOptions{
 		Endpoint:  srv.URL,
 		Template:  "default",
 		Namespace: "sandboxes",
