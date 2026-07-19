@@ -18,11 +18,11 @@ while this project adds the sandbox-shaped API on top.
  ╭──────────╮   ╭─────────────╮  lifecycle  ╭────────────╮
  │   SDK    │   │             ├────────────▶│   ateapi   │  Substrate control plane
  │ ssbx CLI ├──▶│   Sandbox   │             ╰────────────╯
- ╰──────────╯   │     API     │   cmd/fs    ╭────────────╮     ╭────────────────────────────╮
-                │             ├────────────▶│   atenet   ├────▶│ actor                      │
-                ╰─────────────╯             │   router   │     │  └ substrate-sandbox-guest │
-                                            ╰────────────╯     │    /v1/cmd, /v1/fs/*       │
-                                                               ╰────────────────────────────╯
+ ╰──────────╯   │     API     │   cmd/fs    ╭────────────╮     ╭──────────────────────╮
+                │             ├────────────▶│   atenet   ├────▶│ actor                │
+                ╰─────────────╯             │   router   │     │  └ ssbx-guest        │
+                                            ╰────────────╯     │    /v1/cmd, /v1/fs/* │
+                                                               ╰──────────────────────╯
 ```
 
 - **`sandbox`** — the Go SDK, a client of the REST API. Allows creation, suspension,
@@ -30,9 +30,9 @@ resumption, and deletion of sandboxes; as well as file operations and running re
 commands on the sandboxes.
 - **`cmd/ssbx`** — the CLI (`ssbx`). Provides a CLI over the REST API, and utilies to
   make it easier to deploy Substrate Sandbox.
-- **`cmd/substrate-sandbox`** — the REST service. It bridges clients to
+- **`cmd/ssbx-api`** — the REST service. It bridges clients to
   the Substrate control plane and router.
-- **`cmd/substrate-sandbox-guest`** — the daemon server available in the sandbox. It runs
+- **`cmd/ssbx-guest`** — the daemon server available in the sandbox. It runs
   inside every actor and serves command executions and filesystem operations.
 
 ## Installation

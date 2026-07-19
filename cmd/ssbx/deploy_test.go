@@ -25,7 +25,7 @@ func testDeployConfig() deployConfig {
 		snapshotsBucket: "gs://bucket/substrate-sandbox/",
 		replicas:        3,
 		apiReplicas:     1,
-		guestCommand: []string{"/ko-app/substrate-sandbox-guest", "-workdir", "/workspace"},
+		guestCommand: []string{"/ko-app/ssbx-guest", "-workdir", "/workspace"},
 		poolLabels:      map[string]string{"workload": "sandbox"},
 	}
 }
