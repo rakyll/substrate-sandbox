@@ -31,7 +31,7 @@ while this project adds the sandbox-shaped API on top.
   `Suspend`, `Pause`, `Resume`, `Delete`, `Cmd`, `ReadFile`, `WriteFile`,
   `ListDir`, `Stat`, `Mkdir`, `Remove` per actor.
 - **`cmd/substrate-sandbox-api`** — a REST service exposing the API.
-- **`cmd/substrate-guestd`** — the daemon baked into the sandbox. It runs
+- **`cmd/substrate-guestd`** — the daemon server available in the sandbox. It runs
   inside every actor and serves command executions and filesystem operations.
 
 ## Installation
