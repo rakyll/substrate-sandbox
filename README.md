@@ -94,7 +94,7 @@ Available Commands:
   pause       Snapshot locally on the node for fast resume
   read        Print a sandbox file to stdout
   resume      Resume from the latest snapshot
-  rm          Delete a sandbox (suspends it first if needed)
+  rm          Delete a sandbox
   rmpath      Delete a file or directory tree in the sandbox
   stat        Stat a sandbox path
   suspend     Snapshot to external storage and free the worker
