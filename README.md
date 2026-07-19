@@ -1,4 +1,4 @@
-# substrate-sandbox
+# 📦 substrate-sandbox
 
 > [!WARNING]
 > This is an alpha API and is likely to change.
