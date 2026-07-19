@@ -28,8 +28,8 @@ while this project adds the sandbox-shaped API on top.
 - **`sandbox/`** — the Go SDK, a client of the REST API. Allows creation, suspension,
 resumption, and deletion of sandboxes; as well as file operations and running remote
 commands on the sandboxes.
-- **`cmd/ssbx`** — the CLI (`ssbx`). Deploys the system and drives sandboxes
-  from the terminal.
+- **`cmd/ssbx`** — the CLI (`ssbx`). Provides a CLI over the REST API, and utilies to
+  make it easier to deploy Substrate Sandbox.
 - **`cmd/substrate-sandbox`** — the REST service. It bridges clients to
   the Substrate control plane and router.
 - **`cmd/substrate-sandbox-guest`** — the daemon server available in the sandbox. It runs
