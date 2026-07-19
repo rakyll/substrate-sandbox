@@ -57,7 +57,7 @@ README) and a snapshots bucket.
 sbcli deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the sandbox API.
-kubectl port-forward svc/substrate-sandbox-api 7777:80 &
+kubectl port-forward svc/substrate-sandbox-api 7777:7777 &
 
 # 3. Create and use a sandbox.
 sbcli sandbox create dev1
@@ -150,7 +150,7 @@ program.
 ## API
 
 `substrate-sandbox-api` serves the REST API. `sbcli deploy` runs it
-in-cluster as the `substrate-sandbox-api` service (port 80); it can also be
+in-cluster as the `substrate-sandbox-api` service (port 7777); it can also be
 run standalone (default `0.0.0.0:7777`). Responses are JSON unless noted.
 
 ### Sandboxes

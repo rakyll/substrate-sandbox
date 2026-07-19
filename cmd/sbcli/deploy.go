@@ -175,7 +175,7 @@ func runDeploy(ctx context.Context, cmd *cobra.Command, kube kubernetes.Interfac
 	if err := applyAPI(ctx, kube, cfg); err != nil {
 		return err
 	}
-	cmd.Printf("api %s/%s applied (%d replicas); reach it with: kubectl port-forward -n %s svc/%s 7777:80\n",
+	cmd.Printf("api %s/%s applied (%d replicas); reach it with: kubectl port-forward -n %s svc/%s 7777:7777\n",
 		cfg.namespace, apiName, cfg.apiReplicas, cfg.namespace, apiName)
 
 	if cfg.waitForReady <= 0 {
@@ -344,7 +344,7 @@ func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) 
 		Spec: corev1.ServiceSpec{
 			Selector: labels,
 			Ports: []corev1.ServicePort{{
-				Port:       80,
+				Port:       7777,
 				TargetPort: intstr.FromInt32(7777),
 			}},
 		},

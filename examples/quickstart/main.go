@@ -4,7 +4,7 @@
 //
 // It expects a port-forward to the substrate-sandbox-api service:
 //
-//	kubectl port-forward svc/substrate-sandbox-api 7777:80
+//	kubectl port-forward svc/substrate-sandbox-api 7777:7777
 package main
 
 import (
