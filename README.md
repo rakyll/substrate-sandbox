@@ -211,13 +211,14 @@ report when the cap was hit, and `timedOut` reports a timeout kill.
 | `DELETE` | `/v1/sandboxes/{id}/dir?path=`  | Delete a directory tree         |
 | `GET`    | `/v1/sandboxes/{id}/stat?path=` | Stat a path                     |
 
-`GET` and `DELETE` take the path as a `?path=` query parameter. The `POST`
-writes take a JSON body: `{"path", "mode", "content"}` for a file,
-`{"path", "mode"}` for a directory. `content` is base64-encoded; `mode` is
-an octal string that defaults to `"644"` for files and `"755"` for
-directories. Relative paths resolve against the guest's workdir
-(`/workspace` in the shipped template). Writes create missing parent
-directories.
+Write a file, then read the raw bytes back (`content` is base64-encoded;
+`mode` is an octal string defaulting to `"644"`):
+
+```bash
+curl -X POST localhost:7777/v1/sandboxes/dev1/file \
+     -d '{"path": "app/main.txt", "mode": "644", "content": "aGVsbG8K"}'
+curl localhost:7777/v1/sandboxes/dev1/file?path=app/main.txt
+```
 
 ### Built-in Tools
 
