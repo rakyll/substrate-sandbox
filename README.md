@@ -32,16 +32,22 @@ while this project adds the sandbox-shaped API on top.
   inside every actor and serves exec + filesystem endpoints.
 - **`cmd/substrate-sandboxd`** — a REST service exposing the API.
 
+## Installation
+
+```bash
+go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
+
+# Optional: the REST service.
+go install github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd@latest
+```
+
 ## Quickstart
 
 Prerequisites: a cluster with Agent Substrate installed (see the Substrate
 README), `ko`, and a snapshots bucket.
 
 ```bash
-# 1. Install the CLI (installs to $GOBIN, or $GOPATH/bin).
-go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
-
-# 2. Deploy the system: namespace, worker pool, and sandbox template.
+# 1. Deploy the system: namespace, worker pool, and sandbox template.
 #    Images must be digest-pinned; build and push them with ko.
 export KO_DOCKER_REPO=gcr.io/<your-project>
 sbcli deploy \
@@ -50,10 +56,11 @@ sbcli deploy \
   --snapshots-location gs://<your-bucket>/substrate-sandbox/ \
   --template sandbox --namespace substrate-sandbox
 
-# 3. Port-forward the Substrate control plane and router.
+# 2. Port-forward the Substrate control plane and router.
 kubectl port-forward -n ate-system svc/ateapi 8080:443 &
 kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 
+# 3. Create and use a sandbox.
 sbcli create sandbox-dev --template sandbox --namespace substrate-sandbox
 sbcli exec sandbox-dev 'echo hello > /workspace/note.txt'
 sbcli suspend sandbox-dev          # snapshot + free the worker
@@ -64,8 +71,6 @@ sbcli rm sandbox-dev
 Or run the REST service:
 
 ```bash
-go install github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd@latest
-
 substrate-sandboxd
 curl -X POST localhost:8081/v1/sandboxes \
      -d '{"id":"sandbox-dev","template":"sandbox","namespace":"substrate-sandbox"}'
