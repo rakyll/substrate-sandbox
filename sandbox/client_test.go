@@ -17,7 +17,7 @@ import (
 )
 
 // fixture runs the full stack the SDK talks to: a fake Substrate control
-// plane and router behind a real substrate-sandbox handler.
+// plane and router behind a real ssbx-api handler.
 type fixture struct {
 	router *fakerouter.Router
 	client *sandbox.Client

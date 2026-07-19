@@ -58,7 +58,7 @@ installed and a snapshots bucket.
 ssbx deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the sandbox API.
-kubectl port-forward svc/substrate-sandbox 7777:7777 &
+kubectl port-forward svc/ssbx-api 7777:7777 &
 
 # 3. Create and use a sandbox.
 ssbx create dev1
@@ -112,14 +112,14 @@ $ ssbx deploy --help
 Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
-created from, and the substrate-sandbox API service.
+created from, and the ssbx-api service.
 ```
 
 ## SDK
 
 ```go
 client, err := sandbox.NewClient(sandbox.ClientOptions{
-    Endpoint: "http://localhost:7777",          // substrate-sandbox
+    Endpoint: "http://localhost:7777",          // ssbx-api
     Template: "sandbox",                        // ActorTemplate name
 })
 if err != nil {
@@ -150,9 +150,9 @@ program.
 
 ## API
 
-`substrate-sandbox` serves the REST API. `ssbx deploy` runs it
-in-cluster as the `substrate-sandbox` service (port 7777); it can also be
-run standalone (default `0.0.0.0:7777`). Responses are JSON unless noted.
+`ssbx-api` serves the REST API. `ssbx deploy` runs it in-cluster as the
+`ssbx-api` service (port 7777); it can also be run standalone (default
+`0.0.0.0:7777`). Responses are JSON unless noted.
 
 ### Sandboxes
 

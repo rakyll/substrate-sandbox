@@ -139,7 +139,7 @@ const (
 )
 
 // Error is the JSON error envelope returned by the guest daemon and the
-// substrate-sandbox API service on non-2xx responses.
+// ssbx-api service on non-2xx responses.
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"error"`

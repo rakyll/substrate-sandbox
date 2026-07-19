@@ -1,5 +1,5 @@
 // Package sandbox is the Go SDK for the sandbox service. It talks to the
-// substrate-sandbox API service, which bridges to the Substrate
+// ssbx-api service, which bridges to the Substrate
 // control plane and router; `ssbx deploy` runs that service
 // in-cluster.
 package sandbox
@@ -23,9 +23,9 @@ var ErrNotFound = errors.New("not found")
 
 // ClientOptions configures a Client.
 type ClientOptions struct {
-	// Endpoint is the base URL of the substrate-sandbox API service,
+	// Endpoint is the base URL of the ssbx-api service,
 	// e.g. "http://localhost:7777" (typically a port-forward of
-	// svc/substrate-sandbox). A bare host:port implies http.
+	// svc/ssbx-api). A bare host:port implies http.
 	// Required.
 	Endpoint string
 
@@ -41,7 +41,7 @@ type ClientOptions struct {
 	HTTPClient *http.Client
 }
 
-// Client manages sandboxes through the substrate-sandbox service.
+// Client manages sandboxes through the ssbx-api service.
 type Client struct {
 	opts     ClientOptions
 	endpoint string

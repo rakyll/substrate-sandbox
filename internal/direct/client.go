@@ -1,16 +1,16 @@
 // Package direct implements the sandbox abstraction directly on top of
-// Agent Substrate; it backs the substrate-sandbox API service. A
+// Agent Substrate; it backs the ssbx-api service. A
 // Sandbox wraps a Substrate actor: it can be created, suspended (full
 // snapshot to object storage), resumed, and deleted, and while running it
 // accepts remote command execution and filesystem operations served by the
-// substrate-sandbox-guest daemon inside the actor.
+// ssbx-guest daemon inside the actor.
 //
 // Lifecycle operations go to the ateapi gRPC control plane; command and
 // filesystem operations go through the atenet HTTP router, which routes
 // requests by Host header to the actor's guest daemon.
 //
 // Clients outside this repository use the sandbox package, which talks to
-// the substrate-sandbox API service instead.
+// the ssbx-api service instead.
 package direct
 
 import (

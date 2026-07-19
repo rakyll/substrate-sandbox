@@ -23,8 +23,8 @@ import (
 // Substrate ActorTemplate documentation for off-GCP clusters.
 const defaultPauseImage = "registry.k8s.io/pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4"
 
-// apiName is the name of the REST API Deployment and Service.
-const apiName = "substrate-sandbox"
+// apiName is the name of the API service Deployment and Service.
+const apiName = "ssbx-api"
 
 type deployConfig struct {
 	namespace       string
@@ -53,7 +53,7 @@ func newDeployCommand(namespace, template *string) *cobra.Command {
 		Long: `Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
-created from, and the substrate-sandbox API service.
+created from, and the ssbx-api service.
 
 Released ssbx binaries embed digest-pinned default images for the guest
 daemon and the worker, so only --snapshots-bucket is required:
@@ -273,7 +273,7 @@ func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg dep
 	return nil
 }
 
-// applyAPI deploys the substrate-sandbox API service: a Deployment
+// applyAPI deploys the ssbx-api service: a Deployment
 // pointed at the in-cluster Substrate endpoints and a Service exposing it
 // on port 80.
 func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) error {
