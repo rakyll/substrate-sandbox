@@ -77,8 +77,8 @@ func TestCreateStartsSandbox(t *testing.T) {
 	if info.Status != sandbox.StatusRunning {
 		t.Errorf("status = %s, want running", info.Status)
 	}
-	if info.TemplateNamespace != "sandboxes" || info.TemplateName != "default" {
-		t.Errorf("template = %s/%s, want sandboxes/default", info.TemplateNamespace, info.TemplateName)
+	if info.Namespace != "sandboxes" || info.TemplateName != "default" {
+		t.Errorf("template = %s/%s, want sandboxes/default", info.Namespace, info.TemplateName)
 	}
 }
 

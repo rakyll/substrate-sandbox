@@ -47,7 +47,7 @@ type SandboxInfo struct {
 func toSandboxInfo(info sandbox.Info) SandboxInfo {
 	out := SandboxInfo{ID: info.ID, Status: string(info.Status)}
 	if info.TemplateName != "" {
-		out.Template = info.TemplateNamespace + "/" + info.TemplateName
+		out.Template = info.Namespace + "/" + info.TemplateName
 	}
 	return out
 }

@@ -24,10 +24,13 @@ const (
 
 // Info is a point-in-time snapshot of a sandbox's control-plane state.
 type Info struct {
-	ID                string
-	Status            Status
-	TemplateNamespace string
-	TemplateName      string
+	ID     string
+	Status Status
+
+	// TemplateName and Namespace identify the ActorTemplate the sandbox
+	// was created from.
+	TemplateName string
+	Namespace    string
 
 	// WorkerPod is the pod currently hosting the sandbox, when running.
 	WorkerPod          string
@@ -60,7 +63,7 @@ func infoFromActor(a *ateapipb.Actor) Info {
 	return Info{
 		ID:                 a.GetMetadata().GetName(),
 		Status:             statusFromProto(a.GetStatus()),
-		TemplateNamespace:  a.GetActorTemplateNamespace(),
+		Namespace:          a.GetActorTemplateNamespace(),
 		TemplateName:       a.GetActorTemplateName(),
 		WorkerPod:          a.GetAteomPodName(),
 		WorkerPodNamespace: a.GetAteomPodNamespace(),

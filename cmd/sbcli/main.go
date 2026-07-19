@@ -88,7 +88,7 @@ func main() {
 			tw := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
 			fmt.Fprintln(tw, "ID\tSTATUS\tTEMPLATE")
 			for _, info := range infos {
-				fmt.Fprintf(tw, "%s\t%s\t%s/%s\n", info.ID, info.Status, info.TemplateNamespace, info.TemplateName)
+				fmt.Fprintf(tw, "%s\t%s\t%s/%s\n", info.ID, info.Status, info.Namespace, info.TemplateName)
 			}
 			return tw.Flush()
 		},
@@ -104,7 +104,7 @@ func main() {
 				return err
 			}
 			fmt.Printf("id:       %s\nstatus:   %s\ntemplate: %s/%s\n",
-				info.ID, info.Status, info.TemplateNamespace, info.TemplateName)
+				info.ID, info.Status, info.Namespace, info.TemplateName)
 			if info.WorkerPod != "" {
 				fmt.Printf("worker:   %s/%s (%s)\n", info.WorkerPodNamespace, info.WorkerPod, info.WorkerPodIP)
 			}
