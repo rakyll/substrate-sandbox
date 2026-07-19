@@ -3,11 +3,11 @@
 build:
 	go build ./...
 	go build -o bin/ssbx ./cmd/ssbx
-	go build -o bin/substrate-sandbox ./cmd/substrate-sandbox
+	go build -o bin/ssbx-api ./cmd/ssbx-api
 
-# Install ssbx and substrate-sandbox to $GOBIN (or $GOPATH/bin).
+# Install ssbx and ssbx-api to $GOBIN (or $GOPATH/bin).
 install:
-	go install github.com/rakyll/substrate-sandbox/cmd/ssbx github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox
+	go install github.com/rakyll/substrate-sandbox/cmd/ssbx github.com/rakyll/substrate-sandbox/cmd/ssbx-api
 
 test:
 	go test ./...

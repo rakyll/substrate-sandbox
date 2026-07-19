@@ -1,4 +1,4 @@
-// Command substrate-sandbox serves the sandbox REST API. It bridges HTTP
+// Command ssbx-api serves the sandbox REST API. It bridges HTTP
 // clients to the Substrate control plane (ateapi) for sandbox lifecycle
 // and to the atenet router for in-sandbox exec and filesystem operations.
 package main
@@ -35,6 +35,6 @@ func main() {
 	}
 	defer client.Close()
 
-	log.Printf("substrate-sandbox listening on %s (ateapi %s, atenet %s)", *listen, *ateapi, *atenet)
+	log.Printf("ssbx-api listening on %s (ateapi %s, atenet %s)", *listen, *ateapi, *atenet)
 	log.Fatal(http.ListenAndServe(*listen, service.Handler(client)))
 }

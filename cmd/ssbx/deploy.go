@@ -74,7 +74,7 @@ push them with ko:
 
   export KO_DOCKER_REPO=gcr.io/<your-project>
   ssbx deploy \
-    --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-guest) \
+    --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/ssbx-guest) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     --snapshots-bucket gs://<bucket>/substrate-sandbox/ \
     --template sandbox --namespace substrate-sandbox`,
@@ -101,15 +101,15 @@ push them with ko:
 		},
 	}
 
-	cmd.Flags().StringVar(&cfg.guestImage, "guest-image", defaultGuestImage, "digest-pinned substrate-sandbox-guest image (repo@sha256:...)")
+	cmd.Flags().StringVar(&cfg.guestImage, "guest-image", defaultGuestImage, "digest-pinned ssbx-guest image (repo@sha256:...)")
 	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", defaultAteomImage, "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
 	cmd.Flags().StringVar(&cfg.snapshotsBucket, "snapshots-bucket", "", "object-storage bucket (with optional prefix) for suspend snapshots, e.g. gs://bucket/prefix/")
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
-	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "substrate-sandbox image for the REST service")
+	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "ssbx-api image for the REST service")
 	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of REST service replicas")
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
 	cmd.Flags().Int32Var(&cfg.replicas, "replicas", 2, "number of pre-warmed worker pods")
-	cmd.Flags().StringSliceVar(&cfg.guestCommand, "guest-command", []string{"/ko-app/substrate-sandbox-guest", "-workdir", "/workspace"}, "guest container entrypoint")
+	cmd.Flags().StringSliceVar(&cfg.guestCommand, "guest-command", []string{"/ko-app/ssbx-guest", "-workdir", "/workspace"}, "guest container entrypoint")
 	cmd.Flags().DurationVar(&cfg.waitForReady, "wait", 5*time.Minute, "how long to wait for the ActorTemplate to become Ready (0 to skip)")
 	cmd.Flags().StringVar(&cfg.kubeconfig, "kubeconfig", "", "path to the kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)")
 	cmd.Flags().StringVar(&cfg.kubeContext, "kube-context", "", "kubeconfig context to use")
@@ -129,8 +129,8 @@ ssbx is built by a release); pass the images explicitly:
 
   export KO_DOCKER_REPO=<your-registry>
   ssbx deploy \
-    --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-guest) \
-    --api-image    $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox) \
+    --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/ssbx-guest) \
+    --api-image    $(ko build github.com/rakyll/substrate-sandbox/cmd/ssbx-api) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     ...`)
 }

@@ -1,7 +1,7 @@
 name: release
 
 # Tagging vX.Y.Z publishes the two deployment images (digest-pinned) and a
-# GitHub release with ssbx/substrate-sandbox binaries that have those
+# GitHub release with ssbx/ssbx-api binaries that have those
 # image references baked in, so `ssbx deploy` works without ko.
 on:
   push:
@@ -26,16 +26,16 @@ jobs:
       - name: Log in to ghcr.io
         run: echo "${{ github.token }}" | ko login ghcr.io --username "${{ github.actor }}" --password-stdin
 
-      - name: Publish substrate-sandbox-guest image
+      - name: Publish ssbx-guest image
         id: guest
         run: |
-          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-sandbox-guest ko build --bare ./cmd/substrate-sandbox-guest)
+          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/ssbx-guest ko build --bare ./cmd/ssbx-guest)
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
-      - name: Publish substrate-sandbox image
+      - name: Publish ssbx-api image
         id: api
         run: |
-          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-sandbox ko build --bare ./cmd/substrate-sandbox)
+          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/ssbx-api ko build --bare ./cmd/ssbx-api)
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
       # ateom-gvisor lives in the Substrate repo; build it at the commit
@@ -64,7 +64,7 @@ jobs:
                 -ldflags "-s -w -X main.defaultGuestImage=$GUEST_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE -X main.defaultAPIImage=$API_IMAGE" \
                 -o "dist/ssbx-$os-$arch" ./cmd/ssbx
               GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
-                -o "dist/substrate-sandbox-$os-$arch" ./cmd/substrate-sandbox
+                -o "dist/ssbx-api-$os-$arch" ./cmd/ssbx-api
             done
           done
 
