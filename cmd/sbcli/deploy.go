@@ -41,7 +41,7 @@ func newDeployCommand(namespace, template *string) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy the sandbox system (WorkerPool + ActorTemplate) to a cluster running Substrate",
+		Short: "Deploy the system to a cluster running Agent Substrate",
 		Long: `Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, and the ActorTemplate that sandboxes
