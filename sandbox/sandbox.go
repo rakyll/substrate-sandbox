@@ -34,10 +34,10 @@ type Info struct {
 	ID     string
 	Status Status
 
-	// TemplateName and Namespace identify the ActorTemplate the sandbox
+	// Template and Namespace identify the ActorTemplate the sandbox
 	// was created from.
-	TemplateName string
-	Namespace    string
+	Template  string
+	Namespace string
 
 	// WorkerPod is the pod currently hosting the sandbox, when running.
 	WorkerPod          string
@@ -49,7 +49,7 @@ func infoFromAPI(s api.SandboxInfo) Info {
 	return Info{
 		ID:                 s.ID,
 		Status:             Status(s.Status),
-		TemplateName:       s.Template,
+		Template:           s.Template,
 		Namespace:          s.Namespace,
 		WorkerPod:          s.WorkerPod,
 		WorkerPodNamespace: s.WorkerPodNamespace,

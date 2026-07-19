@@ -25,7 +25,7 @@ func toSandboxInfo(info direct.Info) api.SandboxInfo {
 	return api.SandboxInfo{
 		ID:                 info.ID,
 		Status:             string(info.Status),
-		Template:           info.TemplateName,
+		Template:           info.Template,
 		Namespace:          info.Namespace,
 		WorkerPod:          info.WorkerPod,
 		WorkerPodNamespace: info.WorkerPodNamespace,

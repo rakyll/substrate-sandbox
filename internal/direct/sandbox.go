@@ -27,10 +27,10 @@ type Info struct {
 	ID     string
 	Status Status
 
-	// TemplateName and Namespace identify the ActorTemplate the sandbox
+	// Template and Namespace identify the ActorTemplate the sandbox
 	// was created from.
-	TemplateName string
-	Namespace    string
+	Template  string
+	Namespace string
 
 	// WorkerPod is the pod currently hosting the sandbox, when running.
 	WorkerPod          string
@@ -64,7 +64,7 @@ func infoFromActor(a *ateapipb.Actor) Info {
 		ID:                 a.GetMetadata().GetName(),
 		Status:             statusFromProto(a.GetStatus()),
 		Namespace:          a.GetActorTemplateNamespace(),
-		TemplateName:       a.GetActorTemplateName(),
+		Template:           a.GetActorTemplateName(),
 		WorkerPod:          a.GetAteomPodName(),
 		WorkerPodNamespace: a.GetAteomPodNamespace(),
 		WorkerPodIP:        a.GetAteomPodIp(),
