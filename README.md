@@ -41,7 +41,7 @@ go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
 go install github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd@latest
 ```
 
-## Quickstart
+## Setup
 
 Prerequisites: a cluster with Agent Substrate installed (see the Substrate
 README), `ko`, and a snapshots bucket.
