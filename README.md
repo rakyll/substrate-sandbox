@@ -26,9 +26,9 @@ while this project adds the sandbox-shaped API on top.
                                                           └──────────────────────┘
 ```
 
-- **`sandbox/`** — the Go SDK, a client of the REST API. `Create`, `Open`,
-  `List`, and per-sandbox `Suspend`, `Pause`, `Resume`, `Delete`, `Cmd`,
-  `ReadFile`, `WriteFile`, `ListDir`, `Stat`, `Mkdir`, `Remove` per actor.
+- **`sandbox/`** — the Go SDK, a client of the REST API. Allows creation, suspension,
+resumption, and deletion of sandboxes; as well as file operations and running remote
+commands on the sandboxes.
 - **`cmd/substrate-sandbox-api`** — the REST service. It bridges clients to
   the Substrate control plane and router.
 - **`cmd/substrate-guestd`** — the daemon server available in the sandbox. It runs
