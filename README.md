@@ -211,17 +211,21 @@ report when the cap was hit, and `timedOut` reports a timeout kill.
 
 ### Filesystem
 
-| Method   | Path                                      | Description                    |
-| -------- | ----------------------------------------- | ------------------------------ |
-| `GET`    | `/v1/sandboxes/{id}/files?path=`          | Read a file (raw bytes)        |
-| `PUT`    | `/v1/sandboxes/{id}/files?path=&mode=644` | Write a file (raw body)        |
-| `DELETE` | `/v1/sandboxes/{id}/files?path=`          | Delete a file or directory tree|
-| `GET`    | `/v1/sandboxes/{id}/dir?path=`            | List a directory               |
-| `POST`   | `/v1/sandboxes/{id}/dir?path=&mode=755`   | Create a directory (mkdir -p)  |
-| `GET`    | `/v1/sandboxes/{id}/stat?path=`           | Stat a path                    |
+Filesystem endpoints take a JSON body:
 
-Relative paths resolve against the guest's workdir (`/workspace` in the
-shipped template). Writes create missing parent directories.
+| Method | Path                          | Body                          | Description                     |
+| ------ | ----------------------------- | ----------------------------- | ------------------------------- |
+| `POST` | `/v1/sandboxes/{id}/fs/read`  | `{"path"}`                    | Read a file (raw bytes response)|
+| `POST` | `/v1/sandboxes/{id}/fs/write` | `{"path", "mode", "content"}` | Write a file                    |
+| `POST` | `/v1/sandboxes/{id}/fs/rm`    | `{"path"}`                    | Delete a file or directory tree |
+| `POST` | `/v1/sandboxes/{id}/fs/ls`    | `{"path"}`                    | List a directory                |
+| `POST` | `/v1/sandboxes/{id}/fs/mkdir` | `{"path", "mode"}`            | Create a directory (mkdir -p)   |
+| `POST` | `/v1/sandboxes/{id}/fs/stat`  | `{"path"}`                    | Stat a path                     |
+
+`content` is base64-encoded; `mode` is an octal string that defaults to
+`"644"` for files and `"755"` for directories. Relative paths resolve
+against the guest's workdir (`/workspace` in the shipped template). Writes
+create missing parent directories.
 
 ### Built-in Tools
 

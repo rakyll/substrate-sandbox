@@ -3,6 +3,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -47,12 +48,12 @@ func Handler(client *direct.Client) http.Handler {
 	mux.HandleFunc("POST /v1/sandboxes/{id}/pause", s.lifecycle((*direct.Sandbox).Pause))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/resume", s.lifecycle((*direct.Sandbox).Resume))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/cmd", s.cmd)
-	mux.HandleFunc("GET /v1/sandboxes/{id}/files", s.readFile)
-	mux.HandleFunc("PUT /v1/sandboxes/{id}/files", s.writeFile)
-	mux.HandleFunc("DELETE /v1/sandboxes/{id}/files", s.deleteFile)
-	mux.HandleFunc("GET /v1/sandboxes/{id}/dir", s.listDir)
-	mux.HandleFunc("POST /v1/sandboxes/{id}/dir", s.mkdir)
-	mux.HandleFunc("GET /v1/sandboxes/{id}/stat", s.stat)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/read", s.readFile)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/write", s.writeFile)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/rm", s.removePath)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/ls", s.listDir)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/mkdir", s.mkdir)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/stat", s.stat)
 	return mux
 }
 
@@ -181,8 +182,40 @@ func (s *server) cmd(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
+// decodeFS decodes and validates the shared filesystem request body. It
+// writes an error response and reports false when the request is invalid.
+func decodeFS(w http.ResponseWriter, r *http.Request) (api.FSRequest, bool) {
+	var req api.FSRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeBadRequest(w, "invalid request body: %v", err)
+		return req, false
+	}
+	if req.Path == "" {
+		writeBadRequest(w, "path is required")
+		return req, false
+	}
+	return req, true
+}
+
+// fsMode parses the request's octal mode, falling back to def when unset.
+func fsMode(w http.ResponseWriter, req api.FSRequest, def fs.FileMode) (fs.FileMode, bool) {
+	if req.Mode == "" {
+		return def, true
+	}
+	v, err := strconv.ParseUint(req.Mode, 8, 32)
+	if err != nil {
+		writeBadRequest(w, "invalid mode %q: %v", req.Mode, err)
+		return 0, false
+	}
+	return fs.FileMode(v), true
+}
+
 func (s *server) readFile(w http.ResponseWriter, r *http.Request) {
-	rc, err := s.client.Sandbox(r.PathValue("id")).ReadFile(r.Context(), r.URL.Query().Get("path"))
+	req, ok := decodeFS(w, r)
+	if !ok {
+		return
+	}
+	rc, err := s.client.Sandbox(r.PathValue("id")).ReadFile(r.Context(), req.Path)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -193,26 +226,27 @@ func (s *server) readFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) writeFile(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	mode := fs.FileMode(0o644)
-	if m := q.Get("mode"); m != "" {
-		v, err := strconv.ParseUint(m, 8, 32)
-		if err != nil {
-			writeBadRequest(w, "invalid mode %q: %v", m, err)
-			return
-		}
-		mode = fs.FileMode(v)
+	req, ok := decodeFS(w, r)
+	if !ok {
+		return
 	}
-	if err := s.client.Sandbox(r.PathValue("id")).WriteFile(r.Context(), q.Get("path"), r.Body, mode); err != nil {
+	mode, ok := fsMode(w, req, 0o644)
+	if !ok {
+		return
+	}
+	if err := s.client.Sandbox(r.PathValue("id")).WriteFile(r.Context(), req.Path, bytes.NewReader(req.Content), mode); err != nil {
 		writeErr(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *server) deleteFile(w http.ResponseWriter, r *http.Request) {
-	err := s.client.Sandbox(r.PathValue("id")).Remove(r.Context(), r.URL.Query().Get("path"))
-	if err != nil {
+func (s *server) removePath(w http.ResponseWriter, r *http.Request) {
+	req, ok := decodeFS(w, r)
+	if !ok {
+		return
+	}
+	if err := s.client.Sandbox(r.PathValue("id")).Remove(r.Context(), req.Path); err != nil {
 		writeErr(w, err)
 		return
 	}
@@ -220,7 +254,11 @@ func (s *server) deleteFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listDir(w http.ResponseWriter, r *http.Request) {
-	entries, err := s.client.Sandbox(r.PathValue("id")).ListDir(r.Context(), r.URL.Query().Get("path"))
+	req, ok := decodeFS(w, r)
+	if !ok {
+		return
+	}
+	entries, err := s.client.Sandbox(r.PathValue("id")).ListDir(r.Context(), req.Path)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -229,17 +267,15 @@ func (s *server) listDir(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) mkdir(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	mode := fs.FileMode(0o755)
-	if m := q.Get("mode"); m != "" {
-		v, err := strconv.ParseUint(m, 8, 32)
-		if err != nil {
-			writeBadRequest(w, "invalid mode %q: %v", m, err)
-			return
-		}
-		mode = fs.FileMode(v)
+	req, ok := decodeFS(w, r)
+	if !ok {
+		return
 	}
-	if err := s.client.Sandbox(r.PathValue("id")).Mkdir(r.Context(), q.Get("path"), mode); err != nil {
+	mode, ok := fsMode(w, req, 0o755)
+	if !ok {
+		return
+	}
+	if err := s.client.Sandbox(r.PathValue("id")).Mkdir(r.Context(), req.Path, mode); err != nil {
 		writeErr(w, err)
 		return
 	}
@@ -247,7 +283,11 @@ func (s *server) mkdir(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) stat(w http.ResponseWriter, r *http.Request) {
-	entry, err := s.client.Sandbox(r.PathValue("id")).Stat(r.Context(), r.URL.Query().Get("path"))
+	req, ok := decodeFS(w, r)
+	if !ok {
+		return
+	}
+	entry, err := s.client.Sandbox(r.PathValue("id")).Stat(r.Context(), req.Path)
 	if err != nil {
 		writeErr(w, err)
 		return

@@ -1,10 +1,10 @@
 package service_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -88,7 +88,8 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	}
 
 	// Write and read a file through the REST API.
-	resp = do(t, "PUT", srv.URL+"/v1/sandboxes/web-1/files?path="+url.QueryEscape("app/main.txt"), "file body")
+	content := base64.StdEncoding.EncodeToString([]byte("file body"))
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/fs/write", `{"path":"app/main.txt","content":"`+content+`"}`)
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("write file status = %d, want 204", resp.StatusCode)
 	}
@@ -117,7 +118,7 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	}
 
 	// List directory.
-	resp = do(t, "GET", srv.URL+"/v1/sandboxes/web-1/dir?path=app", "")
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/fs/ls", `{"path":"app"}`)
 	listing := decode[api.ListDirResponse](t, resp)
 	if len(listing.Entries) != 1 || listing.Entries[0].Name != "main.txt" {
 		t.Fatalf("listing = %+v, want [main.txt]", listing.Entries)

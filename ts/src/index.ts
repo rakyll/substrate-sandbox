@@ -334,7 +334,13 @@ export class Sandbox {
 
   /** Returns the contents of the file at path inside the sandbox. */
   async readFile(path: string): Promise<Uint8Array> {
-    const response = await this.client.do("GET", this.path("/files"), { path });
+    const response = await this.client.do(
+      "POST",
+      this.path("/fs/read"),
+      undefined,
+      "application/json",
+      JSON.stringify({ path }),
+    );
     return new Uint8Array(await response.arrayBuffer());
   }
 
@@ -347,36 +353,39 @@ export class Sandbox {
     data: Uint8Array | string | Blob,
     options: { mode?: number } = {},
   ): Promise<void> {
-    const body: BodyInit =
-      typeof data === "string" || data instanceof Blob
-        ? data
-        : (data as Uint8Array<ArrayBuffer>);
-    const response = await this.client.do(
-      "PUT",
-      this.path("/files"),
-      { path, mode: (options.mode ?? 0o644).toString(8) },
-      "application/octet-stream",
-      body,
-    );
-    await response.body?.cancel();
+    let bytes: Uint8Array;
+    if (typeof data === "string") {
+      bytes = new TextEncoder().encode(data);
+    } else if (data instanceof Blob) {
+      bytes = new Uint8Array(await data.arrayBuffer());
+    } else {
+      bytes = data;
+    }
+    await this.client.doJSON("POST", this.path("/fs/write"), undefined, {
+      path,
+      mode: (options.mode ?? 0o644).toString(8),
+      content: toBase64(bytes),
+    });
   }
 
   /** Lists the entries of the directory at path inside the sandbox. */
   async listDir(path: string): Promise<DirEntry[]> {
-    const body = (await this.client.doJSON("GET", this.path("/dir"), { path })) as {
-      entries?: DirEntry[];
-    };
+    const body = (await this.client.doJSON("POST", this.path("/fs/ls"), undefined, {
+      path,
+    })) as { entries?: DirEntry[] };
     return body.entries ?? [];
   }
 
   /** Returns information about the file or directory at path. */
   async stat(path: string): Promise<DirEntry> {
-    return (await this.client.doJSON("GET", this.path("/stat"), { path })) as DirEntry;
+    return (await this.client.doJSON("POST", this.path("/fs/stat"), undefined, {
+      path,
+    })) as DirEntry;
   }
 
   /** Creates the directory at path, along with any missing parents. */
   async mkdir(path: string, options: { mode?: number } = {}): Promise<void> {
-    await this.client.doJSON("POST", this.path("/dir"), {
+    await this.client.doJSON("POST", this.path("/fs/mkdir"), undefined, {
       path,
       mode: (options.mode ?? 0o755).toString(8),
     });
@@ -384,7 +393,7 @@ export class Sandbox {
 
   /** Deletes the file or directory tree at path. */
   async remove(path: string): Promise<void> {
-    await this.client.doJSON("DELETE", this.path("/files"), { path });
+    await this.client.doJSON("POST", this.path("/fs/rm"), undefined, { path });
   }
 
   /** Polls until the sandbox reaches the given status. */

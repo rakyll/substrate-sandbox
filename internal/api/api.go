@@ -118,6 +118,22 @@ type ListSandboxesResponse struct {
 	Sandboxes []SandboxInfo `json:"sandboxes"`
 }
 
+// FSRequest is the body of the filesystem endpoints
+// (POST /v1/sandboxes/{id}/fs/*).
+type FSRequest struct {
+	// Path of the file or directory inside the sandbox. Relative paths
+	// resolve against the guest's workdir. Required.
+	Path string `json:"path"`
+
+	// Mode is the octal file mode for write and mkdir, e.g. "644".
+	// Defaults to "644" for files and "755" for directories.
+	Mode string `json:"mode,omitempty"`
+
+	// Content is the file content for write. It is base64-encoded in
+	// JSON.
+	Content []byte `json:"content,omitempty"`
+}
+
 // Error codes returned in Error.Code.
 const (
 	CodeNotFound        = "not_found"

@@ -85,26 +85,36 @@ before(async () => {
         );
         return;
       }
-      case "files": {
-        const path = url.searchParams.get("path") ?? "";
-        if (req.method === "PUT") {
-          files.set(path, body);
-          res.writeHead(204).end();
-          return;
+      case "fs": {
+        const fsOp = parts[4];
+        const fsReq = JSON.parse(body.toString()) as {
+          path: string;
+          mode?: string;
+          content?: string;
+        };
+        switch (fsOp) {
+          case "write":
+            files.set(fsReq.path, Buffer.from(fsReq.content ?? "", "base64"));
+            res.writeHead(204).end();
+            return;
+          case "rm":
+            files.delete(fsReq.path);
+            res.writeHead(204).end();
+            return;
+          case "read": {
+            const data = files.get(fsReq.path);
+            if (data === undefined) {
+              notFound(res, `${fsReq.path} not found`);
+              return;
+            }
+            res.writeHead(200, { "Content-Type": "application/octet-stream" });
+            res.end(data);
+            return;
+          }
+          default:
+            notFound(res, `unhandled fs op ${fsOp}`);
+            return;
         }
-        if (req.method === "DELETE") {
-          files.delete(path);
-          res.writeHead(204).end();
-          return;
-        }
-        const data = files.get(path);
-        if (data === undefined) {
-          notFound(res, `${path} not found`);
-          return;
-        }
-        res.writeHead(200, { "Content-Type": "application/octet-stream" });
-        res.end(data);
-        return;
       }
       default:
         notFound(res, `unhandled ${req.method} ${url.pathname}`);
