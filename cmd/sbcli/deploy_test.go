@@ -34,6 +34,17 @@ func quietCommand() *cobra.Command {
 	return cmd
 }
 
+func TestResolveImages(t *testing.T) {
+	cfg := testDeployConfig()
+	if err := cfg.resolveImages(); err != nil {
+		t.Errorf("resolveImages with both images set: %v", err)
+	}
+	cfg.ateomImage = ""
+	if err := cfg.resolveImages(); err == nil {
+		t.Error("resolveImages with a missing image: want error, got nil")
+	}
+}
+
 func TestRunDeployCreatesResources(t *testing.T) {
 	kube := kubefake.NewClientset()
 	ate := atefake.NewSimpleClientset()

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -47,9 +48,15 @@ already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, and the ActorTemplate that sandboxes
 are created from.
 
+Released sbcli binaries embed digest-pinned default images for the guest
+daemon and the worker, so only --snapshots-location is required:
+
+  sbcli system deploy --snapshots-location gs://<bucket>/substrate-sandbox/
+
 Images must be pinned by digest (repo@sha256:...); Substrate rejects
-unpinned images because changing an image invalidates snapshots. Build
-and push them with ko:
+unpinned images because changing an image invalidates snapshots. To use
+your own images (required when sbcli was built from source), build and
+push them with ko:
 
   export KO_DOCKER_REPO=gcr.io/<your-project>
   sbcli system deploy \
@@ -59,6 +66,9 @@ and push them with ko:
     --template sandbox --namespace substrate-sandbox`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cfg.resolveImages(); err != nil {
+				return err
+			}
 			cfg.namespace = *namespace
 			cfg.template = *template
 			if cfg.template == "" {
@@ -77,8 +87,8 @@ and push them with ko:
 		},
 	}
 
-	cmd.Flags().StringVar(&cfg.guestdImage, "guestd-image", "", "digest-pinned substrate-guestd image (repo@sha256:...)")
-	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", "", "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
+	cmd.Flags().StringVar(&cfg.guestdImage, "guestd-image", defaultGuestdImage, "digest-pinned substrate-guestd image (repo@sha256:...)")
+	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", defaultAteomImage, "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
 	cmd.Flags().StringVar(&cfg.snapshotsLocation, "snapshots-location", "", "object-storage location for suspend snapshots, e.g. gs://bucket/prefix/")
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
@@ -87,11 +97,25 @@ and push them with ko:
 	cmd.Flags().DurationVar(&cfg.waitForReady, "wait", 5*time.Minute, "how long to wait for the ActorTemplate to become Ready (0 to skip)")
 	cmd.Flags().StringVar(&cfg.kubeconfig, "kubeconfig", "", "path to the kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)")
 	cmd.Flags().StringVar(&cfg.kubeContext, "kube-context", "", "kubeconfig context to use")
-	cmd.MarkFlagRequired("guestd-image")
-	cmd.MarkFlagRequired("ateom-image")
 	cmd.MarkFlagRequired("snapshots-location")
 
 	return cmd
+}
+
+// resolveImages verifies that both deployment images are set, either baked
+// in at release time or passed as flags.
+func (c *deployConfig) resolveImages() error {
+	if c.guestdImage != "" && c.ateomImage != "" {
+		return nil
+	}
+	return errors.New(`no default images are baked into this build of sbcli (they are set when
+sbcli is built by a release); pass the images explicitly:
+
+  export KO_DOCKER_REPO=<your-registry>
+  sbcli system deploy \
+    --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
+    --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
+    ...`)
 }
 
 func kubeClients(kubeconfig, kubeContext string) (kubernetes.Interface, ateclientset.Interface, error) {

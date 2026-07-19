@@ -1,0 +1,73 @@
+name: release
+
+# Tagging vX.Y.Z publishes the two deployment images (digest-pinned) and a
+# GitHub release with sbcli/substrate-sandbox-api binaries that have those
+# image references baked in, so `sbcli system deploy` works without ko.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: ko-build/setup-ko@v0.9
+
+      - name: Log in to ghcr.io
+        run: echo "${{ github.token }}" | ko login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Publish substrate-guestd image
+        id: guestd
+        run: |
+          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/substrate-guestd ko build --bare ./cmd/substrate-guestd)
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      # ateom-gvisor lives in the Substrate repo; build it at the commit
+      # pinned in go.mod so the worker matches the client libraries.
+      - name: Publish ateom-gvisor image
+        id: ateom
+        run: |
+          version=$(go list -m -f '{{.Version}}' github.com/agent-substrate/substrate)
+          commit=${version##*-}
+          git clone --filter=blob:none https://github.com/agent-substrate/substrate "$RUNNER_TEMP/substrate"
+          git -C "$RUNNER_TEMP/substrate" checkout "$commit"
+          cd "$RUNNER_TEMP/substrate"
+          image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/ateom-gvisor ko build --bare ./cmd/ateom-gvisor)
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Build binaries
+        env:
+          GUESTD_IMAGE: ${{ steps.guestd.outputs.image }}
+          ATEOM_IMAGE: ${{ steps.ateom.outputs.image }}
+        run: |
+          mkdir -p dist
+          for os in linux darwin; do
+            for arch in amd64 arm64; do
+              GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
+                -ldflags "-s -w -X main.defaultGuestdImage=$GUESTD_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE" \
+                -o "dist/sbcli-$os-$arch" ./cmd/sbcli
+              GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
+                -o "dist/substrate-sandbox-api-$os-$arch" ./cmd/substrate-sandbox-api
+            done
+          done
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --notes "Default deploy images baked into sbcli:
+          - \`${{ steps.guestd.outputs.image }}\`
+          - \`${{ steps.ateom.outputs.image }}\`"

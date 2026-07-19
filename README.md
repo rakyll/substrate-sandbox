@@ -36,23 +36,25 @@ while this project adds the sandbox-shaped API on top.
 
 ## Installation
 
+Download `sbcli` from the [releases page](https://github.com/rakyll/substrate-sandbox/releases),
+or build from source:
+
 ```bash
-go install github.com/rakyll/substrate-sandbox/cmd/...@latest
+go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
 ```
+
+Release binaries embed digest-pinned default images for `sbcli system
+deploy`; source builds don't, so deploying with one requires building the
+images yourself with `ko` (see `sbcli system deploy --help`).
 
 ## Quickstart
 
 Prerequisites: a cluster with Agent Substrate installed (see the Substrate
-README), `ko`, and a snapshots bucket.
+README) and a snapshots bucket.
 
 ```bash
 # 1. Deploy the system: namespace, worker pool, and sandbox template.
-#    Images must be digest-pinned; build and push them with ko.
-export KO_DOCKER_REPO=gcr.io/<your-project>
-sbcli system deploy \
-  --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
-  --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
-  --snapshots-location gs://<your-bucket>/substrate-sandbox/
+sbcli system deploy --snapshots-location gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the Substrate control plane and router.
 kubectl port-forward -n ate-system svc/ateapi 8080:443 &
