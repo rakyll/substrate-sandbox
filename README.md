@@ -38,9 +38,6 @@ while this project adds the sandbox-shaped API on top.
 go install github.com/rakyll/substrate-sandbox/cmd/...@latest
 ```
 
-This installs `sbcli`, the `substrate-sandboxd` REST service, and the
-`substrate-guestd` daemon to `$GOBIN` (or `$GOPATH/bin`).
-
 ## Setup
 
 Prerequisites: a cluster with Agent Substrate installed (see the Substrate
