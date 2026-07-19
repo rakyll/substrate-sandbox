@@ -1,11 +1,11 @@
 # substrate-sandbox
 
-A sandboxing service on top of [Agent Substrate](https://github.com/agent-substrate/substrate): isolated, stateful execution environments
+A sandboxing service on top of [Agent Substrate](https://github.com/agent-substrate/substrate):isolated, stateful execution environments
 that can be **suspended** (full memory + filesystem snapshot to object
 storage), **resumed** on any available worker, and driven remotely with
 **command execution** and **filesystem operations**.
 
-Each sandbox is a Substrate *actor* running in a gVisor-isolated container.
+Each sandbox is a Substrate *actor* running in an isolated container.
 Substrate provides the heavy lifting — snapshotting, scheduling,
 multiplexing many idle sandboxes onto a small worker pool, and routing —
 while this project adds the sandbox-shaped API on top.
@@ -18,7 +18,7 @@ while this project adds the sandbox-shaped API on top.
    │ SDK      ├─────────▶│   ateapi   │  Substrate control plane
    │ sbcli    │          └────────────┘
    │ sandboxd │          ┌────────────┐      ┌──────────────────────┐
-   └──────────┘─────────▶│   atenet   ├─────▶│ actor (gVisor)       │
+   └──────────┘─────────▶│   atenet   ├─────▶│ actor                │
                  exec/fs │   router   │      │  └ substrate-guestd  │
        Host: <id>.actors.└────────────┘      │     /v1/exec         │
         resources.substrate.ate.dev          │     /v1/fs/*         │
