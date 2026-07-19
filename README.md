@@ -89,15 +89,34 @@ client, err := sandbox.New(sandbox.Options{
     SkipVerify:  true,                          // ateapi uses pod certs
     AutoResume:  true,                          // wake sandboxes on use
 })
+if err != nil {
+    log.Fatalf("connecting to Substrate: %v", err)
+}
+defer client.Close()
 
-sb, _ := client.Create(ctx, "sandbox-dev")
-sb.WriteFile(ctx, "/workspace/main.go", src, 0o644)
-res, _ := sb.Command(ctx, "cd /workspace && go run main.go")
+sb, err := client.Create(ctx, "sandbox-dev")
+if err != nil {
+    log.Fatalf("creating sandbox: %v", err)
+}
+
+if err := sb.WriteFile(ctx, "/workspace/main.go", src, 0o644); err != nil {
+    log.Fatalf("writing main.go: %v", err)
+}
+res, err := sb.Command(ctx, "cd /workspace && go run main.go")
+if err != nil {
+    log.Fatalf("running main.go: %v", err)
+}
 fmt.Println(res.Stdout, res.ExitCode)
 
-sb.Suspend(ctx)
-sb.Resume(ctx)    // restore on any available worker
-sb.Delete(ctx)    // suspends first if needed, then deletes
+if err := sb.Suspend(ctx); err != nil {
+    log.Fatalf("suspending sandbox: %v", err)
+}
+if err := sb.Resume(ctx); err != nil { // restore on any available worker
+    log.Fatalf("resuming sandbox: %v", err)
+}
+if err := sb.Delete(ctx); err != nil { // suspends first if needed, then deletes
+    log.Fatalf("deleting sandbox: %v", err)
+}
 ```
 
 See [examples/quickstart](examples/quickstart/main.go) for a complete
