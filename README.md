@@ -59,19 +59,19 @@ kubectl port-forward -n ate-system svc/ateapi 8080:443 &
 kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 
 # 3. Create and use a sandbox.
-sbcli sandbox create sandbox-dev
-sbcli sandbox cmd sandbox-dev 'echo hello > /workspace/note.txt'
-sbcli sandbox suspend sandbox-dev
-sbcli sandbox cmd sandbox-dev 'cat /workspace/note.txt' # auto-resumes; prints hello
-sbcli sandbox rm sandbox-dev
+sbcli sandbox create dev1
+sbcli sandbox cmd dev1 'echo hello > /workspace/note.txt'
+sbcli sandbox suspend dev1
+sbcli sandbox cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
+sbcli sandbox rm dev1
 ```
 
 Or run the REST service:
 
 ```bash
 substrate-sandbox-api
-curl -X POST localhost:8081/v1/sandboxes -d '{"id":"sandbox-dev"}'
-curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/cmd \
+curl -X POST localhost:8081/v1/sandboxes -d '{"id":"dev1"}'
+curl -X POST localhost:8081/v1/sandboxes/dev1/cmd \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
 
@@ -127,7 +127,7 @@ if err != nil {
 }
 defer client.Close()
 
-sb, err := client.Create(ctx, "sandbox-dev")
+sb, err := client.Create(ctx, "dev1")
 if err != nil {
     log.Fatalf("creating sandbox: %v", err)
 }
@@ -170,7 +170,7 @@ Create body (only `id` is required):
 
 ```json
 {
-  "id": "sandbox-dev",
+  "id": "dev1",
   "template": "sandbox",
   "namespace": "default",
   "start": true
@@ -222,7 +222,7 @@ shipped template). Writes create missing parent directories.
 Non-2xx responses carry a JSON envelope:
 
 ```json
-{"error": "sandbox \"sandbox-dev\" not found", "code": "not_found"}
+{"error": "sandbox \"dev1\" not found", "code": "not_found"}
 ```
 
 Codes: `not_found`, `invalid_argument`, `is_directory`, `not_directory`,
