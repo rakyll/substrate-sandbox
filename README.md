@@ -50,8 +50,8 @@ yourself with `ko` (see `ssbx deploy --help`).
 
 ## Quickstart
 
-Prerequisites: a cluster with Agent Substrate installed (see the Substrate
-README) and a snapshots bucket.
+Prerequisites: a cluster with [Agent Substrate](https://github.com/agent-substrate/substrate)
+installed and a snapshots bucket.
 
 ```bash
 # 1. Deploy the system: namespace, worker pool, and sandbox template.
