@@ -119,7 +119,7 @@ type ListSandboxesResponse struct {
 }
 
 // FSRequest is the body of the filesystem endpoints
-// (POST /v1/sandboxes/{id}/fs/*).
+// (POST /v1/sandboxes/{id}/{file,dir,stat}).
 type FSRequest struct {
 	// Path of the file or directory inside the sandbox. Relative paths
 	// resolve against the guest's workdir. Required.

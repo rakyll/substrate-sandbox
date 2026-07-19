@@ -1,9 +1,7 @@
 package sandbox
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -134,11 +132,7 @@ func (s *Sandbox) Cmd(ctx context.Context, commandLine string) (*CmdResult, erro
 // ReadFile streams the contents of the file at path inside the sandbox.
 // The caller must close the returned reader.
 func (s *Sandbox) ReadFile(ctx context.Context, path string) (io.ReadCloser, error) {
-	body, err := json.Marshal(api.FSRequest{Path: path})
-	if err != nil {
-		return nil, fmt.Errorf("sandbox: encoding request: %w", err)
-	}
-	resp, err := s.client.do(ctx, http.MethodPost, s.path("/fs/read"), nil, "application/json", bytes.NewReader(body))
+	resp, err := s.client.do(ctx, http.MethodGet, s.path("/file"), url.Values{"path": {path}}, "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -158,13 +152,13 @@ func (s *Sandbox) WriteFile(ctx context.Context, path string, r io.Reader, mode 
 		Mode:    strconv.FormatUint(uint64(mode.Perm()), 8),
 		Content: data,
 	}
-	return s.client.doJSON(ctx, http.MethodPost, s.path("/fs/write"), nil, req, nil)
+	return s.client.doJSON(ctx, http.MethodPost, s.path("/file"), nil, req, nil)
 }
 
 // ListDir lists the entries of the directory at path inside the sandbox.
 func (s *Sandbox) ListDir(ctx context.Context, path string) ([]DirEntry, error) {
 	var out api.ListDirResponse
-	if err := s.client.doJSON(ctx, http.MethodPost, s.path("/fs/ls"), nil, api.FSRequest{Path: path}, &out); err != nil {
+	if err := s.client.doJSON(ctx, http.MethodGet, s.path("/dir"), url.Values{"path": {path}}, nil, &out); err != nil {
 		return nil, err
 	}
 	return out.Entries, nil
@@ -173,7 +167,7 @@ func (s *Sandbox) ListDir(ctx context.Context, path string) ([]DirEntry, error) 
 // Stat returns information about the file or directory at path.
 func (s *Sandbox) Stat(ctx context.Context, path string) (DirEntry, error) {
 	var entry DirEntry
-	if err := s.client.doJSON(ctx, http.MethodPost, s.path("/fs/stat"), nil, api.FSRequest{Path: path}, &entry); err != nil {
+	if err := s.client.doJSON(ctx, http.MethodGet, s.path("/stat"), url.Values{"path": {path}}, nil, &entry); err != nil {
 		return DirEntry{}, err
 	}
 	return entry, nil
@@ -185,12 +179,18 @@ func (s *Sandbox) Mkdir(ctx context.Context, path string, mode fs.FileMode) erro
 		Path: path,
 		Mode: strconv.FormatUint(uint64(mode.Perm()), 8),
 	}
-	return s.client.doJSON(ctx, http.MethodPost, s.path("/fs/mkdir"), nil, req, nil)
+	return s.client.doJSON(ctx, http.MethodPost, s.path("/dir"), nil, req, nil)
 }
 
 // Remove deletes the file or directory tree at path.
 func (s *Sandbox) Remove(ctx context.Context, path string) error {
-	return s.client.doJSON(ctx, http.MethodPost, s.path("/fs/rm"), nil, api.FSRequest{Path: path}, nil)
+	return s.client.doJSON(ctx, http.MethodDelete, s.path("/file"), url.Values{"path": {path}}, nil, nil)
+}
+
+// RemoveDir deletes the directory tree at path. It fails if path is not a
+// directory.
+func (s *Sandbox) RemoveDir(ctx context.Context, path string) error {
+	return s.client.doJSON(ctx, http.MethodDelete, s.path("/dir"), url.Values{"path": {path}}, nil, nil)
 }
 
 // WaitStatus polls until the sandbox reaches the given status or ctx is

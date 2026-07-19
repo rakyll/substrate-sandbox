@@ -48,12 +48,13 @@ func Handler(client *direct.Client) http.Handler {
 	mux.HandleFunc("POST /v1/sandboxes/{id}/pause", s.lifecycle((*direct.Sandbox).Pause))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/resume", s.lifecycle((*direct.Sandbox).Resume))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/cmd", s.cmd)
-	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/read", s.readFile)
-	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/write", s.writeFile)
-	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/rm", s.removePath)
-	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/ls", s.listDir)
-	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/mkdir", s.mkdir)
-	mux.HandleFunc("POST /v1/sandboxes/{id}/fs/stat", s.stat)
+	mux.HandleFunc("GET /v1/sandboxes/{id}/file", s.readFile)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/file", s.writeFile)
+	mux.HandleFunc("DELETE /v1/sandboxes/{id}/file", s.removePath)
+	mux.HandleFunc("GET /v1/sandboxes/{id}/dir", s.listDir)
+	mux.HandleFunc("POST /v1/sandboxes/{id}/dir", s.mkdir)
+	mux.HandleFunc("DELETE /v1/sandboxes/{id}/dir", s.removeDir)
+	mux.HandleFunc("GET /v1/sandboxes/{id}/stat", s.stat)
 	return mux
 }
 
@@ -182,6 +183,17 @@ func (s *server) cmd(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, res)
 }
 
+// queryPath returns the required "path" query parameter, writing an error
+// response and reporting false when it is missing.
+func queryPath(w http.ResponseWriter, r *http.Request) (string, bool) {
+	path := r.URL.Query().Get("path")
+	if path == "" {
+		writeBadRequest(w, "path query parameter is required")
+		return "", false
+	}
+	return path, true
+}
+
 // decodeFS decodes and validates the shared filesystem request body. It
 // writes an error response and reports false when the request is invalid.
 func decodeFS(w http.ResponseWriter, r *http.Request) (api.FSRequest, bool) {
@@ -211,11 +223,11 @@ func fsMode(w http.ResponseWriter, req api.FSRequest, def fs.FileMode) (fs.FileM
 }
 
 func (s *server) readFile(w http.ResponseWriter, r *http.Request) {
-	req, ok := decodeFS(w, r)
+	path, ok := queryPath(w, r)
 	if !ok {
 		return
 	}
-	rc, err := s.client.Sandbox(r.PathValue("id")).ReadFile(r.Context(), req.Path)
+	rc, err := s.client.Sandbox(r.PathValue("id")).ReadFile(r.Context(), path)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -242,11 +254,11 @@ func (s *server) writeFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) removePath(w http.ResponseWriter, r *http.Request) {
-	req, ok := decodeFS(w, r)
+	path, ok := queryPath(w, r)
 	if !ok {
 		return
 	}
-	if err := s.client.Sandbox(r.PathValue("id")).Remove(r.Context(), req.Path); err != nil {
+	if err := s.client.Sandbox(r.PathValue("id")).Remove(r.Context(), path); err != nil {
 		writeErr(w, err)
 		return
 	}
@@ -254,11 +266,11 @@ func (s *server) removePath(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) listDir(w http.ResponseWriter, r *http.Request) {
-	req, ok := decodeFS(w, r)
+	path, ok := queryPath(w, r)
 	if !ok {
 		return
 	}
-	entries, err := s.client.Sandbox(r.PathValue("id")).ListDir(r.Context(), req.Path)
+	entries, err := s.client.Sandbox(r.PathValue("id")).ListDir(r.Context(), path)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -282,12 +294,37 @@ func (s *server) mkdir(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *server) stat(w http.ResponseWriter, r *http.Request) {
-	req, ok := decodeFS(w, r)
+func (s *server) removeDir(w http.ResponseWriter, r *http.Request) {
+	path, ok := queryPath(w, r)
 	if !ok {
 		return
 	}
-	entry, err := s.client.Sandbox(r.PathValue("id")).Stat(r.Context(), req.Path)
+	sb := s.client.Sandbox(r.PathValue("id"))
+	entry, err := sb.Stat(r.Context(), path)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if !entry.IsDir {
+		writeJSON(w, http.StatusBadRequest, api.Error{
+			Code:    api.CodeNotDirectory,
+			Message: fmt.Sprintf("%s is not a directory", path),
+		})
+		return
+	}
+	if err := sb.Remove(r.Context(), path); err != nil {
+		writeErr(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *server) stat(w http.ResponseWriter, r *http.Request) {
+	path, ok := queryPath(w, r)
+	if !ok {
+		return
+	}
+	entry, err := s.client.Sandbox(r.PathValue("id")).Stat(r.Context(), path)
 	if err != nil {
 		writeErr(w, err)
 		return

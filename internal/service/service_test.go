@@ -3,6 +3,7 @@ package service_test
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -89,9 +90,16 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 
 	// Write and read a file through the REST API.
 	content := base64.StdEncoding.EncodeToString([]byte("file body"))
-	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/fs/write", `{"path":"app/main.txt","content":"`+content+`"}`)
+	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/file", `{"path":"app/main.txt","content":"`+content+`"}`)
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("write file status = %d, want 204", resp.StatusCode)
+	}
+	resp = do(t, "GET", srv.URL+"/v1/sandboxes/web-1/file?path=app/main.txt", "")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("read file status = %d, want 200", resp.StatusCode)
+	}
+	if data, _ := io.ReadAll(resp.Body); string(data) != "file body" {
+		t.Fatalf("read file = %q, want %q", data, "file body")
 	}
 
 	// Exec.
@@ -118,10 +126,29 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 	}
 
 	// List directory.
-	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/fs/ls", `{"path":"app"}`)
+	resp = do(t, "GET", srv.URL+"/v1/sandboxes/web-1/dir?path=app", "")
 	listing := decode[api.ListDirResponse](t, resp)
 	if len(listing.Entries) != 1 || listing.Entries[0].Name != "main.txt" {
 		t.Fatalf("listing = %+v, want [main.txt]", listing.Entries)
+	}
+
+	// Deleting a file through the directory endpoint is refused.
+	resp = do(t, "DELETE", srv.URL+"/v1/sandboxes/web-1/dir?path=app/main.txt", "")
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("delete file via dir status = %d, want 400", resp.StatusCode)
+	}
+	if got := decode[api.Error](t, resp).Code; got != api.CodeNotDirectory {
+		t.Fatalf("delete file via dir code = %q, want %q", got, api.CodeNotDirectory)
+	}
+
+	// Delete the directory tree.
+	resp = do(t, "DELETE", srv.URL+"/v1/sandboxes/web-1/dir?path=app", "")
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete dir status = %d, want 204", resp.StatusCode)
+	}
+	resp = do(t, "GET", srv.URL+"/v1/sandboxes/web-1/dir?path=app", "")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("list after delete status = %d, want 404", resp.StatusCode)
 	}
 
 	// Delete.

@@ -103,6 +103,7 @@ Available Commands:
   mkdir       Create a directory in the sandbox
   read        Print a sandbox file to stdout
   rm          Delete a file or directory tree in the sandbox
+  rmdir       Delete a directory tree in the sandbox
   stat        Stat a sandbox path
   write       Write stdin to a sandbox file
 
@@ -200,21 +201,23 @@ report when the cap was hit, and `timedOut` reports a timeout kill.
 
 ### Filesystem
 
-Filesystem endpoints take a JSON body:
+| Method   | Path                            | Description                     |
+| -------- | ------------------------------- | ------------------------------- |
+| `GET`    | `/v1/sandboxes/{id}/file?path=` | Read a file (raw bytes response)|
+| `POST`   | `/v1/sandboxes/{id}/file`    | Write a file                    |
+| `DELETE` | `/v1/sandboxes/{id}/file?path=` | Delete a file or directory tree |
+| `GET`    | `/v1/sandboxes/{id}/dir?path=`  | List a directory                |
+| `POST`   | `/v1/sandboxes/{id}/dir`     | Create a directory (mkdir -p)   |
+| `DELETE` | `/v1/sandboxes/{id}/dir?path=`  | Delete a directory tree         |
+| `GET`    | `/v1/sandboxes/{id}/stat?path=` | Stat a path                     |
 
-| Method | Path                          | Body                          | Description                     |
-| ------ | ----------------------------- | ----------------------------- | ------------------------------- |
-| `POST` | `/v1/sandboxes/{id}/fs/read`  | `{"path"}`                    | Read a file (raw bytes response)|
-| `POST` | `/v1/sandboxes/{id}/fs/write` | `{"path", "mode", "content"}` | Write a file                    |
-| `POST` | `/v1/sandboxes/{id}/fs/rm`    | `{"path"}`                    | Delete a file or directory tree |
-| `POST` | `/v1/sandboxes/{id}/fs/ls`    | `{"path"}`                    | List a directory                |
-| `POST` | `/v1/sandboxes/{id}/fs/mkdir` | `{"path", "mode"}`            | Create a directory (mkdir -p)   |
-| `POST` | `/v1/sandboxes/{id}/fs/stat`  | `{"path"}`                    | Stat a path                     |
-
-`content` is base64-encoded; `mode` is an octal string that defaults to
-`"644"` for files and `"755"` for directories. Relative paths resolve
-against the guest's workdir (`/workspace` in the shipped template). Writes
-create missing parent directories.
+`GET` and `DELETE` take the path as a `?path=` query parameter. The `POST`
+writes take a JSON body: `{"path", "mode", "content"}` for a file,
+`{"path", "mode"}` for a directory. `content` is base64-encoded; `mode` is
+an octal string that defaults to `"644"` for files and `"755"` for
+directories. Relative paths resolve against the guest's workdir
+(`/workspace` in the shipped template). Writes create missing parent
+directories.
 
 ### Built-in Tools
 
