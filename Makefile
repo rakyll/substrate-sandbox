@@ -3,11 +3,11 @@
 build:
 	go build ./...
 	go build -o bin/sbcli ./cmd/sbcli
-	go build -o bin/substrate-sandboxd ./cmd/substrate-sandboxd
+	go build -o bin/substrate-sandbox-api ./cmd/substrate-sandbox-api
 
-# Install sbcli and substrate-sandboxd to $GOBIN (or $GOPATH/bin).
+# Install sbcli and substrate-sandbox-api to $GOBIN (or $GOPATH/bin).
 install:
-	go install github.com/rakyll/substrate-sandbox/cmd/sbcli github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd
+	go install github.com/rakyll/substrate-sandbox/cmd/sbcli github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-api
 
 test:
 	go test ./...

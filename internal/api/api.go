@@ -89,7 +89,7 @@ const (
 )
 
 // Error is the JSON error envelope returned by the guest daemon and the
-// substrate-sandboxd REST service on non-2xx responses.
+// substrate-sandbox-api REST service on non-2xx responses.
 type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"error"`

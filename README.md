@@ -13,11 +13,11 @@ while this project adds the sandbox-shaped API on top.
 
 ```
                  lifecycle (create/suspend/resume/delete)
-   ┌──────────┐          ┌────────────┐
-   │ SDK      ├─────────▶│   ateapi   │  Substrate control plane
-   │ sbcli    │          └────────────┘
-   │ sandboxd │          ┌────────────┐      ┌──────────────────────┐
-   └──────────┘─────────▶│   atenet   ├─────▶│ actor                │
+   ┌─────────────┐       ┌────────────┐
+   │ SDK         ├──────▶│   ateapi   │  Substrate control plane
+   │ CLI         │       └────────────┘
+   │ sandbox-api │       ┌────────────┐      ┌──────────────────────┐
+   └─────────────┘──────▶│   atenet   ├─────▶│ actor                │
                   cmd/fs │   router   │      │  └ substrate-guestd  │
        Host: <id>.actors.└────────────┘      │     /v1/cmd          │
         resources.substrate.ate.dev          │     /v1/fs/*         │
@@ -27,7 +27,7 @@ while this project adds the sandbox-shaped API on top.
 - **`sandbox/`** — the SDK. `Create`, `Open`, `List`, and per-sandbox
   `Suspend`, `Pause`, `Resume`, `Delete`, `Cmd`, `ReadFile`, `WriteFile`,
   `ListDir`, `Stat`, `Mkdir`, `Remove` per actor.
-- **`cmd/substrate-sandboxd`** — a REST service exposing the API.
+- **`cmd/substrate-sandbox-api`** — a REST service exposing the API.
 - **`cmd/substrate-guestd`** — the daemon baked into the sandbox. It runs
   inside every actor and serves command executions and filesystem operations.
 
@@ -66,7 +66,7 @@ sbcli rm sandbox-dev
 Or run the REST service:
 
 ```bash
-substrate-sandboxd
+substrate-sandbox-api
 curl -X POST localhost:8081/v1/sandboxes -d '{"id":"sandbox-dev"}'
 curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/cmd \
      -d '{"command":["sh","-c","uname -a"]}'
@@ -143,7 +143,7 @@ and file operations transparently resume a suspended sandbox and retry.
 
 ## API
 
-`substrate-sandboxd` serves the REST API (default `:8081`). Responses are
+`substrate-sandbox-api` serves the REST API (default `:8081`). Responses are
 JSON unless noted.
 
 ### Sandboxes
