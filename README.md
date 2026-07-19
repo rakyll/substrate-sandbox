@@ -27,15 +27,10 @@ while this project adds the sandbox-shaped API on top.
 
 - **`sandbox/`** — the SDK. `Create`, `Open`, `List`, and per-sandbox
   `Suspend`, `Pause`, `Resume`, `Delete`, `Exec`, `ReadFile`, `WriteFile`,
-  `ListDir`, `Stat`, `Mkdir`, `Remove`. Lifecycle calls go to the `ateapi`
-  gRPC service; exec/fs calls go through the `atenet` router, addressed by
-  Host header.
+  `ListDir`, `Stat`, `Mkdir`, `Remove`.
 - **`cmd/substrate-guestd`** — the daemon baked into the sandbox image. Runs
-  inside every actor and serves exec + filesystem endpoints. Because
-  Substrate snapshots the whole container (RAM and filesystem), everything
-  a command creates survives suspend/resume.
-- **`cmd/substrate-sandboxd`** — a REST service exposing the same
-  abstraction to any language (see the HTTP API below).
+  inside every actor and serves exec + filesystem endpoints.
+- **`cmd/substrate-sandboxd`** — a REST service exposing the API.
 
 ## Quickstart
 
@@ -101,7 +96,7 @@ program.
 `Pause` keeps it on the node for faster resume. With `AutoResume`, exec and
 file operations transparently resume a suspended sandbox and retry.
 
-## HTTP API (`substrate-sandboxd`)
+## API
 
 | Method & path                        | Description                              |
 | ------------------------------------ | ---------------------------------------- |
