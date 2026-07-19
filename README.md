@@ -232,6 +232,6 @@ Non-2xx responses carry a JSON envelope:
 | ------------------ | ------------------------------------------------------------------ |
 | `not_found`        | The sandbox, file, or directory does not exist                     |
 | `invalid_argument` | Malformed request: bad body, mode, timeout, cwd, or path; also returned when a file or command output exceeds the size cap |
-| `is_directory`     | The path names a directory where a file operation was requested    |
+| `not_file`         | The path names a directory where a file operation was requested    |
 | `not_directory`    | The path names a file where a directory operation was requested    |
 | `internal`         | Unexpected failure in the guest or control plane                   |

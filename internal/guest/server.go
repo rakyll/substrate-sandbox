@@ -100,7 +100,7 @@ func writeFSError(w http.ResponseWriter, err error) {
 	case errors.Is(err, fs.ErrNotExist):
 		writeError(w, http.StatusNotFound, api.CodeNotFound, "%v", err)
 	case errors.Is(err, syscall.EISDIR):
-		writeError(w, http.StatusBadRequest, api.CodeIsDirectory, "%v", err)
+		writeError(w, http.StatusBadRequest, api.CodeNotFile, "%v", err)
 	case errors.Is(err, syscall.ENOTDIR):
 		writeError(w, http.StatusBadRequest, api.CodeNotDirectory, "%v", err)
 	default:
@@ -237,7 +237,7 @@ func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if fi.IsDir() {
-		writeError(w, http.StatusBadRequest, api.CodeIsDirectory, "%s is a directory", path)
+		writeError(w, http.StatusBadRequest, api.CodeNotFile, "%s is a directory", path)
 		return
 	}
 	if fi.Size() > s.maxFile() {

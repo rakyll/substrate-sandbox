@@ -83,7 +83,7 @@ type ListDirResponse struct {
 const (
 	CodeNotFound        = "not_found"
 	CodeInvalidArgument = "invalid_argument"
-	CodeIsDirectory     = "is_directory"
+	CodeNotFile         = "not_file"
 	CodeNotDirectory    = "not_directory"
 	CodeInternal        = "internal"
 )
