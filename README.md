@@ -38,7 +38,6 @@ while this project adds the sandbox-shaped API on top.
 - **`cmd/substrate-sandboxd`** — a REST service exposing the same
   abstraction to any language (see the HTTP API below).
 - **`cmd/sbcli`** — a small CLI over the SDK.
-- **`internal/service/`** — the REST handler used by `substrate-sandboxd`.
 - **`manifests/`** — the `WorkerPool` and `ActorTemplate` that define the
   sandbox environment.
 
