@@ -39,6 +39,11 @@ func main() {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// deploy talks to the Kubernetes API, not the Substrate
+			// control plane.
+			if cmd.Name() == "deploy" {
+				return nil
+			}
 			var err error
 			client, err = sandbox.New(sandbox.Options{
 				ControlAddr: ateapi,
@@ -61,6 +66,8 @@ func main() {
 	root.PersistentFlags().StringVar(&template, "template", "", "ActorTemplate name (for create)")
 	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
 	root.PersistentFlags().BoolVar(&skipVerify, "skip-verify", true, "skip TLS certificate verification on the control plane connection")
+
+	root.AddCommand(newDeployCommand(&namespace, &template))
 
 	root.AddCommand(&cobra.Command{
 		Use:   "create <id>",
