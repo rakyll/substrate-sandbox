@@ -25,10 +25,10 @@ while this project adds the sandbox-shaped API on top.
                                                                ╰──────────────────────╯
 ```
 
-- **`sandbox`** — the Go SDK, a client of the REST API. Allows creation, suspension,
+- **`sandbox`** — the Go SDK, a client of the API. Allows creation, suspension,
 resumption, and deletion of sandboxes; as well as file operations and running remote
 commands on the sandboxes.
-- **`cmd/ssbx`** — the CLI (`ssbx`). Provides a CLI over the REST API, and utilies to
+- **`cmd/ssbx`** — the CLI (`ssbx`). Provides a CLI over the API, and utilies to
   make it easier to deploy Substrate Sandbox.
 - **`cmd/ssbx-api`** — the API service. It bridges clients to
   the Substrate control plane and router.
@@ -68,7 +68,7 @@ ssbx cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
 ssbx delete dev1
 ```
 
-Or use the REST API directly:
+Or use the API directly:
 
 ```bash
 curl -X POST localhost:7777/v1/sandboxes -d '{"id":"dev1"}'
@@ -150,7 +150,7 @@ program.
 
 ## API
 
-`ssbx-api` serves the REST API. `ssbx deploy` runs it in-cluster as the
+`ssbx-api` serves the API. `ssbx deploy` runs it in-cluster as the
 `ssbx-api` service (port 7777); it can also be run standalone (default
 `0.0.0.0:7777`). Responses are JSON unless noted.
 

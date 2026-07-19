@@ -88,7 +88,7 @@ func TestRESTLifecycleAndExec(t *testing.T) {
 		t.Fatalf("created = %+v, want web-1 running", created)
 	}
 
-	// Write and read a file through the REST API.
+	// Write and read a file through the API.
 	content := base64.StdEncoding.EncodeToString([]byte("file body"))
 	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/file", `{"path":"app/main.txt","content":"`+content+`"}`)
 	if resp.StatusCode != http.StatusNoContent {

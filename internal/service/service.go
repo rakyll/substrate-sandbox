@@ -1,4 +1,4 @@
-// Package service exposes the sandbox abstraction as a REST API, so that
+// Package service exposes the sandbox abstraction as a API, so that
 // sandboxes can be managed from any language without the Go SDK.
 package service
 
@@ -33,7 +33,7 @@ func toSandboxInfo(info direct.Info) api.SandboxInfo {
 	}
 }
 
-// Handler serves the sandbox REST API backed by client.
+// Handler serves the sandbox API backed by client.
 func Handler(client *direct.Client) http.Handler {
 	s := &server{client: client}
 	mux := http.NewServeMux()

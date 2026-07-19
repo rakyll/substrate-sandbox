@@ -1,4 +1,4 @@
-// Command ssbx-api serves the sandbox REST API. It bridges HTTP
+// Command ssbx-api serves the sandbox API. It bridges HTTP
 // clients to the Substrate control plane (ateapi) for sandbox lifecycle
 // and to the atenet router for in-sandbox exec and filesystem operations.
 package main
@@ -14,7 +14,7 @@ import (
 
 func main() {
 	var (
-		listen     = flag.String("listen", "0.0.0.0:7777", "address to serve the REST API on")
+		listen     = flag.String("listen", "0.0.0.0:7777", "address to serve the API on")
 		ateapi     = flag.String("ateapi", direct.DefaultControlAddr, "address of the ateapi gRPC control plane")
 		atenet     = flag.String("atenet", direct.DefaultRouterAddr, "address of the atenet HTTP router")
 		hostSuffix = flag.String("host-suffix", direct.DefaultHostSuffix, "atenet router host suffix for actor routing")
