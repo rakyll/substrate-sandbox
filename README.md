@@ -78,6 +78,35 @@ curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/cmd \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
 
+## CLI
+
+```bash
+$ sbcli
+Manage sandboxes on Agent Substrate
+
+Usage:
+  sbcli [command]
+
+Available Commands:
+  cmd         Run a shell command line in the sandbox
+  completion  Generate the autocompletion script for the specified shell
+  create      Create and start a sandbox
+  deploy      Deploy the system to a cluster running Agent Substrate
+  help        Help about any command
+  info        Show a sandbox's status
+  ls          List sandboxes
+  lsdir       List a sandbox directory
+  mkdir       Create a directory in the sandbox
+  pause       Snapshot locally on the node for fast resume
+  read        Print a sandbox file to stdout
+  resume      Resume from the latest snapshot
+  rm          Delete a sandbox (suspends it first if needed)
+  rmpath      Delete a file or directory tree in the sandbox
+  stat        Stat a sandbox path
+  suspend     Snapshot to external storage and free the worker
+  write       Write stdin to a sandbox file
+```
+
 ## SDK
 
 ```go
