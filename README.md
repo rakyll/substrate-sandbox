@@ -35,11 +35,11 @@ while this project adds the sandbox-shaped API on top.
 ## Installation
 
 ```bash
-go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
-
-# Optional: the REST service.
-go install github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd@latest
+go install github.com/rakyll/substrate-sandbox/cmd/...@latest
 ```
+
+This installs `sbcli`, the `substrate-sandboxd` REST service, and the
+`substrate-guestd` daemon to `$GOBIN` (or `$GOPATH/bin`).
 
 ## Setup
 
