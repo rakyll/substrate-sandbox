@@ -194,7 +194,7 @@ func (s *server) cmd(w http.ResponseWriter, r *http.Request) {
 		writeBadRequest(w, "invalid request body: %v", err)
 		return
 	}
-	res, err := s.client.Sandbox(r.PathValue("id")).Cmd(r.Context(), req)
+	res, err := s.client.Sandbox(r.PathValue("id")).Run(r.Context(), req)
 	if err != nil {
 		writeErr(w, err)
 		return

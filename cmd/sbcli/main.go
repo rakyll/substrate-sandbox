@@ -160,7 +160,7 @@ func main() {
 		Short: "Run a shell command line in the sandbox",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := client.Sandbox(args[0]).Command(cmd.Context(), args[1])
+			res, err := client.Sandbox(args[0]).Cmd(cmd.Context(), args[1])
 			if err != nil {
 				return err
 			}

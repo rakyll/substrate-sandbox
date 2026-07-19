@@ -101,7 +101,7 @@ if err != nil {
 if err := sb.WriteFile(ctx, "/workspace/main.go", src, 0o644); err != nil {
     log.Fatalf("writing main.go: %v", err)
 }
-res, err := sb.Command(ctx, "cd /workspace && go run main.go")
+res, err := sb.Cmd(ctx, "cd /workspace && go run main.go")
 if err != nil {
     log.Fatalf("running main.go: %v", err)
 }

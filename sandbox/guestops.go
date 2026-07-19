@@ -24,10 +24,10 @@ type CmdResult = api.CmdResult
 // DirEntry describes a file or directory inside a sandbox.
 type DirEntry = api.DirEntry
 
-// Cmd runs a command inside the sandbox and returns its captured output
+// Run runs a command inside the sandbox and returns its captured output
 // and exit code. The command is executed directly (not through a shell);
-// see Command for a shell-friendly shorthand.
-func (s *Sandbox) Cmd(ctx context.Context, req CmdRequest) (*CmdResult, error) {
+// see Cmd for a shell-friendly shorthand.
+func (s *Sandbox) Run(ctx context.Context, req CmdRequest) (*CmdResult, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("sandbox: encoding command request: %w", err)
@@ -44,9 +44,9 @@ func (s *Sandbox) Cmd(ctx context.Context, req CmdRequest) (*CmdResult, error) {
 	return &res, nil
 }
 
-// Command runs a shell command line ("sh -c") inside the sandbox.
-func (s *Sandbox) Command(ctx context.Context, commandLine string) (*CmdResult, error) {
-	return s.Cmd(ctx, CmdRequest{Command: []string{"sh", "-c", commandLine}})
+// Cmd runs a shell command line ("sh -c") inside the sandbox.
+func (s *Sandbox) Cmd(ctx context.Context, commandLine string) (*CmdResult, error) {
+	return s.Run(ctx, CmdRequest{Command: []string{"sh", "-c", commandLine}})
 }
 
 // ReadFile returns the contents of the file at path inside the sandbox.

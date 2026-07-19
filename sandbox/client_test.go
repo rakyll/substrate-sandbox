@@ -190,7 +190,7 @@ func TestCmdAndFilesystem(t *testing.T) {
 		t.Errorf("entries = %+v, want [hello.txt]", entries)
 	}
 
-	res, err := sb.Command(ctx, "cat project/hello.txt && printf '!'")
+	res, err := sb.Cmd(ctx, "cat project/hello.txt && printf '!'")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestCmdOnSuspendedSandboxFailsWithoutAutoResume(t *testing.T) {
 	if err := sb.Suspend(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sb.Command(ctx, "true"); err == nil {
+	if _, err := sb.Cmd(ctx, "true"); err == nil {
 		t.Fatal("exec on suspended sandbox succeeded, want error")
 	}
 }
@@ -238,7 +238,7 @@ func TestAutoResumeRetriesGuestOps(t *testing.T) {
 	if err := sb.Suspend(ctx); err != nil {
 		t.Fatal(err)
 	}
-	res, err := sb.Command(ctx, "echo awake")
+	res, err := sb.Cmd(ctx, "echo awake")
 	if err != nil {
 		t.Fatalf("exec with auto-resume: %v", err)
 	}
