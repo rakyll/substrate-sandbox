@@ -28,8 +28,6 @@ while this project adds the sandbox-shaped API on top.
 - **`sandbox/`** — the Go SDK, a client of the REST API. Allows creation, suspension,
 resumption, and deletion of sandboxes; as well as file operations and running remote
 commands on the sandboxes.
-- **`ts/`** — the TypeScript SDK, the same surface over the REST API (see
-  [ts/README.md](ts/README.md)).
 - **`cmd/substrate-sandbox-api`** — the REST service. It bridges clients to
   the Substrate control plane and router.
 - **`cmd/substrate-guest-api`** — the daemon server available in the sandbox. It runs
@@ -147,14 +145,6 @@ sb.Delete(ctx)
 
 See [examples/quickstart](examples/quickstart/main.go) for a complete
 program.
-
-A TypeScript SDK with the same surface lives in [ts/](ts/README.md):
-
-```ts
-const client = new SandboxClient({ endpoint: "http://localhost:7777" });
-const sandbox = await client.create("dev1");
-const result = await sandbox.cmd("uname -a");
-```
 
 ## API
 
