@@ -9,7 +9,7 @@ build:
 
 # Install sbcli and substrate-sandboxd to $GOBIN (or $GOPATH/bin).
 install:
-	go install ./cmd/sbcli ./cmd/substrate-sandboxd
+	go install github.com/rakyll/substrate-sandbox/cmd/sbcli github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd
 
 test:
 	go test ./...

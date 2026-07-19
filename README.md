@@ -55,7 +55,7 @@ kubectl port-forward -n ate-system svc/ateapi 8080:443 &
 kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 
 # 3. Install and use the CLI (installs to $GOBIN, or $GOPATH/bin).
-go install ./cmd/sbcli
+go install github.com/rakyll/substrate-sandbox/cmd/sbcli
 
 sbcli create dev-1 --template substrate-sandbox/sandbox
 sbcli exec dev-1 'echo hello > /workspace/note.txt'
@@ -131,7 +131,7 @@ make test      # unit + integration tests (fake control plane & router)
 make vet
 ```
 
-Note: install from a clone of this repository (`go install ./cmd/sbcli`);
-`go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest` does not
-work because the module pins Substrate to a local checkout via a `replace`
-directive, which `go install pkg@version` ignores.
+Note: run `go install` from a clone of this repository. The versioned form
+(`go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest`) does
+not work because the module pins Substrate to a local checkout via a
+`replace` directive, which `go install pkg@version` ignores.
