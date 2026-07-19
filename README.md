@@ -1,5 +1,8 @@
 # substrate-sandbox
 
+> [!WARNING]
+> This is an alpha API and is likely to change.
+
 A sandboxing service on top of [Agent Substrate](https://github.com/agent-substrate/substrate): isolated, stateful execution environments
 that can be **suspended**, **resumed** on any available worker,
 and driven remotely with **command execution** and **filesystem operations**.
