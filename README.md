@@ -36,7 +36,6 @@ while this project adds the sandbox-shaped API on top.
   a command creates survives suspend/resume.
 - **`cmd/substrate-sandboxd`** — a REST service exposing the same
   abstraction to any language (see the HTTP API below).
-- **`cmd/sbcli`** — a CLI.
 
 ## Quickstart
 
@@ -66,7 +65,9 @@ sbcli rm sandbox-dev
 Or run the REST service:
 
 ```bash
-go run ./cmd/substrate-sandboxd -template substrate-sandbox/sandbox
+go install github.com/rakyll/substrate-sandbox/cmd/substrate-sandboxd@latest
+
+substrate-sandboxd -template substrate-sandbox/sandbox
 curl -X POST localhost:8081/v1/sandboxes -d '{"id":"sandbox-dev"}'
 curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/exec \
      -d '{"command":["sh","-c","uname -a"]}'
@@ -88,8 +89,8 @@ sb.WriteFile(ctx, "/workspace/main.go", src, 0o644)
 res, _ := sb.Command(ctx, "cd /workspace && go run main.go")
 fmt.Println(res.Stdout, res.ExitCode)
 
-sb.Suspend(ctx)   // hibernate: RAM + fs snapshotted, worker freed
-sb.Resume(ctx)    // restore on any eligible worker
+sb.Suspend(ctx)
+sb.Resume(ctx)    // restore on any available worker
 sb.Delete(ctx)    // suspends first if needed, then deletes
 ```
 
