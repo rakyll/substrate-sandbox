@@ -1,0 +1,243 @@
+// Package sandbox provides a Claude Sandbox-style abstraction on top of
+// Agent Substrate. A Sandbox wraps a Substrate actor: it can be created,
+// suspended (full snapshot to object storage), resumed, and deleted, and
+// while running it accepts remote command execution and filesystem
+// operations served by the substrate-guestd daemon inside the actor.
+//
+// Lifecycle operations go to the ateapi gRPC control plane; exec and
+// filesystem operations go through the atenet HTTP router, which routes
+// requests by Host header to the actor's guest daemon.
+package sandbox
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
+)
+
+// DefaultHostSuffix is the DNS suffix the atenet router uses to identify
+// actors: requests with Host "<id>.<suffix>" are routed to actor <id>.
+const DefaultHostSuffix = "actors.resources.substrate.ate.dev"
+
+// ErrNotFound is returned when a sandbox, file, or directory does not exist.
+var ErrNotFound = errors.New("not found")
+
+// Options configures a Client.
+type Options struct {
+	// ControlAddr is the ateapi gRPC endpoint, e.g. "localhost:8080"
+	// (typically a port-forward of svc/ateapi in ate-system). Required.
+	ControlAddr string
+
+	// RouterAddr is the atenet HTTP router endpoint, e.g. "localhost:8000"
+	// (typically a port-forward of svc/atenet-router in ate-system).
+	// Required for Exec and filesystem operations.
+	RouterAddr string
+
+	// HostSuffix overrides the router host suffix. Defaults to
+	// DefaultHostSuffix.
+	HostSuffix string
+
+	// Template is the default ActorTemplate for Create, as
+	// "namespace/name".
+	Template string
+
+	// SkipVerify disables TLS certificate verification on the control
+	// plane connection. Set this when talking to a port-forwarded ateapi,
+	// which serves with pod certificates not signed by a public CA (the
+	// Substrate demos and kubectl-ate connect the same way).
+	SkipVerify bool
+
+	// TLSConfig overrides the TLS configuration for the control plane
+	// connection.
+	TLSConfig *tls.Config
+
+	// HTTPClient overrides the HTTP client used for router traffic.
+	HTTPClient *http.Client
+
+	// AutoResume makes guest operations (Exec, file I/O) resume a
+	// suspended or paused sandbox and retry once, instead of failing.
+	AutoResume bool
+}
+
+// Client manages sandboxes on a Substrate cluster.
+type Client struct {
+	opts    Options
+	conn    *grpc.ClientConn
+	control ateapipb.ControlClient
+	http    *http.Client
+}
+
+// New creates a Client. The control-plane connection is established
+// lazily on first use.
+func New(opts Options) (*Client, error) {
+	if opts.ControlAddr == "" {
+		return nil, errors.New("sandbox: Options.ControlAddr is required")
+	}
+	if opts.HostSuffix == "" {
+		opts.HostSuffix = DefaultHostSuffix
+	}
+
+	var creds credentials.TransportCredentials
+	if opts.TLSConfig != nil {
+		creds = credentials.NewTLS(opts.TLSConfig)
+	} else {
+		creds = credentials.NewTLS(&tls.Config{InsecureSkipVerify: opts.SkipVerify})
+	}
+
+	conn, err := grpc.NewClient(opts.ControlAddr, grpc.WithTransportCredentials(creds))
+	if err != nil {
+		return nil, fmt.Errorf("sandbox: dialing control plane: %w", err)
+	}
+
+	httpClient := opts.HTTPClient
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
+	return &Client{
+		opts:    opts,
+		conn:    conn,
+		control: ateapipb.NewControlClient(conn),
+		http:    httpClient,
+	}, nil
+}
+
+// Close releases the control-plane connection.
+func (c *Client) Close() error {
+	return c.conn.Close()
+}
+
+func (c *Client) templateRef(override string) (namespace, name string, err error) {
+	t := override
+	if t == "" {
+		t = c.opts.Template
+	}
+	if t == "" {
+		return "", "", errors.New("sandbox: no ActorTemplate specified (set Options.Template or WithTemplate)")
+	}
+	parts := strings.SplitN(t, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("sandbox: invalid template %q, want \"namespace/name\"", t)
+	}
+	return parts[0], parts[1], nil
+}
+
+// CreateOption customizes Create.
+type CreateOption func(*createConfig)
+
+type createConfig struct {
+	template       string
+	workerSelector map[string]string
+	noStart        bool
+	boot           bool
+}
+
+// WithTemplate overrides the client's default ActorTemplate, as
+// "namespace/name".
+func WithTemplate(namespaceName string) CreateOption {
+	return func(c *createConfig) { c.template = namespaceName }
+}
+
+// WithWorkerSelector constrains which worker pools can host the sandbox.
+func WithWorkerSelector(matchLabels map[string]string) CreateOption {
+	return func(c *createConfig) { c.workerSelector = matchLabels }
+}
+
+// WithoutStart registers the sandbox without starting it. The sandbox
+// starts on its first Resume (or on first traffic, if the router
+// auto-resumes).
+func WithoutStart() CreateOption {
+	return func(c *createConfig) { c.noStart = true }
+}
+
+// WithBoot starts the sandbox by booting the workload from scratch,
+// skipping the template's golden snapshot.
+func WithBoot() CreateOption {
+	return func(c *createConfig) { c.boot = true }
+}
+
+// Create registers a new sandbox with the given ID (a DNS-1123 label) and,
+// unless WithoutStart is given, starts it.
+func (c *Client) Create(ctx context.Context, id string, opts ...CreateOption) (*Sandbox, error) {
+	var cfg createConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
+	namespace, name, err := c.templateRef(cfg.template)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &ateapipb.CreateActorRequest{
+		ActorId:                id,
+		ActorTemplateNamespace: namespace,
+		ActorTemplateName:      name,
+	}
+	if len(cfg.workerSelector) > 0 {
+		req.WorkerSelector = &ateapipb.Selector{MatchLabels: cfg.workerSelector}
+	}
+	if _, err := c.control.CreateActor(ctx, req); err != nil {
+		return nil, fmt.Errorf("sandbox: creating %q: %w", id, wrapGRPCError(err))
+	}
+
+	sb := &Sandbox{id: id, client: c}
+	if !cfg.noStart {
+		if _, err := c.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{ActorId: id, Boot: cfg.boot}); err != nil {
+			return sb, fmt.Errorf("sandbox: starting %q: %w", id, wrapGRPCError(err))
+		}
+	}
+	return sb, nil
+}
+
+// Open returns a handle to an existing sandbox, verifying it exists.
+func (c *Client) Open(ctx context.Context, id string) (*Sandbox, error) {
+	sb := &Sandbox{id: id, client: c}
+	if _, err := sb.Info(ctx); err != nil {
+		return nil, err
+	}
+	return sb, nil
+}
+
+// Sandbox returns a handle to a sandbox by ID without checking that it
+// exists.
+func (c *Client) Sandbox(id string) *Sandbox {
+	return &Sandbox{id: id, client: c}
+}
+
+// List returns information about all sandboxes known to the control plane.
+func (c *Client) List(ctx context.Context) ([]Info, error) {
+	var infos []Info
+	var pageToken string
+	for {
+		resp, err := c.control.ListActors(ctx, &ateapipb.ListActorsRequest{
+			PageSize:  500,
+			PageToken: pageToken,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("sandbox: listing sandboxes: %w", wrapGRPCError(err))
+		}
+		for _, a := range resp.GetActors() {
+			infos = append(infos, infoFromActor(a))
+		}
+		pageToken = resp.GetNextPageToken()
+		if pageToken == "" {
+			return infos, nil
+		}
+	}
+}
+
+func wrapGRPCError(err error) error {
+	if status.Code(err) == codes.NotFound {
+		return fmt.Errorf("%w: %s", ErrNotFound, status.Convert(err).Message())
+	}
+	return err
+}

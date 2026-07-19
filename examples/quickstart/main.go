@@ -1,0 +1,66 @@
+// Command quickstart demonstrates the sandbox SDK end to end: create a
+// sandbox, write and run code in it, suspend it, then resume and observe
+// that its filesystem survived the hibernation cycle.
+//
+// It expects port-forwards to the Substrate control plane and router:
+//
+//	kubectl port-forward -n ate-system svc/ateapi 8080:443
+//	kubectl port-forward -n ate-system svc/atenet-router 8000:80
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/rakyll/substrate-sandbox/sandbox"
+)
+
+func main() {
+	ctx := context.Background()
+
+	client, err := sandbox.New(sandbox.Options{
+		ControlAddr: "localhost:8080",
+		RouterAddr:  "localhost:8000",
+		Template:    "substrate-sandbox/sandbox",
+		SkipVerify:  true, // ateapi serves with pod certificates
+		AutoResume:  true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+
+	sb, err := client.Create(ctx, "quickstart-1")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sb.Delete(ctx)
+
+	// Write a script into the sandbox and run it.
+	script := "#!/bin/sh\necho \"hello from $(hostname)\"\ndate > /workspace/last-run\n"
+	if err := sb.WriteFile(ctx, "/workspace/hello.sh", []byte(script), 0o755); err != nil {
+		log.Fatal(err)
+	}
+	res, err := sb.Command(ctx, "/workspace/hello.sh")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Print(res.Stdout)
+
+	// Suspend: full memory + filesystem snapshot, worker freed.
+	if err := sb.Suspend(ctx); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("suspended.")
+
+	// Resume and verify the filesystem survived.
+	if err := sb.Resume(ctx); err != nil {
+		log.Fatal(err)
+	}
+	data, err := sb.ReadFile(ctx, "/workspace/last-run")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("resumed; state survived: last run at %s", data)
+}

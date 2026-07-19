@@ -1,0 +1,219 @@
+package sandbox
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"net/http"
+	"net/url"
+	"strconv"
+
+	"github.com/rakyll/substrate-sandbox/internal/api"
+)
+
+// ExecRequest describes a command to run inside a sandbox.
+type ExecRequest = api.ExecRequest
+
+// ExecResult is the outcome of an ExecRequest.
+type ExecResult = api.ExecResult
+
+// DirEntry describes a file or directory inside a sandbox.
+type DirEntry = api.DirEntry
+
+// Exec runs a command inside the sandbox and returns its captured output
+// and exit code. The command is executed directly (not through a shell);
+// see Command for a shell-friendly shorthand.
+func (s *Sandbox) Exec(ctx context.Context, req ExecRequest) (*ExecResult, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox: encoding exec request: %w", err)
+	}
+	resp, err := s.guestDo(ctx, http.MethodPost, "/v1/exec", nil, "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var res ExecResult
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, fmt.Errorf("sandbox: decoding exec response: %w", err)
+	}
+	return &res, nil
+}
+
+// Command runs a shell command line ("sh -c") inside the sandbox.
+func (s *Sandbox) Command(ctx context.Context, commandLine string) (*ExecResult, error) {
+	return s.Exec(ctx, ExecRequest{Command: []string{"sh", "-c", commandLine}})
+}
+
+// ReadFile returns the contents of the file at path inside the sandbox.
+func (s *Sandbox) ReadFile(ctx context.Context, path string) ([]byte, error) {
+	resp, err := s.guestDo(ctx, http.MethodGet, "/v1/fs/file", url.Values{"path": {path}}, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox: reading %q from %q: %w", path, s.id, err)
+	}
+	return data, nil
+}
+
+// WriteFile writes data to the file at path inside the sandbox with the
+// given permissions, creating parent directories as needed.
+func (s *Sandbox) WriteFile(ctx context.Context, path string, data []byte, mode fs.FileMode) error {
+	q := url.Values{
+		"path":   {path},
+		"mode":   {strconv.FormatUint(uint64(mode.Perm()), 8)},
+		"mkdirs": {"true"},
+	}
+	resp, err := s.guestDo(ctx, http.MethodPut, "/v1/fs/file", q, "application/octet-stream", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
+// ListDir lists the entries of the directory at path inside the sandbox.
+func (s *Sandbox) ListDir(ctx context.Context, path string) ([]DirEntry, error) {
+	resp, err := s.guestDo(ctx, http.MethodGet, "/v1/fs/dir", url.Values{"path": {path}}, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var out api.ListDirResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("sandbox: decoding directory listing: %w", err)
+	}
+	return out.Entries, nil
+}
+
+// Stat returns information about the file or directory at path.
+func (s *Sandbox) Stat(ctx context.Context, path string) (DirEntry, error) {
+	resp, err := s.guestDo(ctx, http.MethodGet, "/v1/fs/stat", url.Values{"path": {path}}, "", nil)
+	if err != nil {
+		return DirEntry{}, err
+	}
+	defer resp.Body.Close()
+	var entry DirEntry
+	if err := json.NewDecoder(resp.Body).Decode(&entry); err != nil {
+		return DirEntry{}, fmt.Errorf("sandbox: decoding stat response: %w", err)
+	}
+	return entry, nil
+}
+
+// Mkdir creates the directory at path, along with any missing parents.
+func (s *Sandbox) Mkdir(ctx context.Context, path string, mode fs.FileMode) error {
+	q := url.Values{
+		"path": {path},
+		"mode": {strconv.FormatUint(uint64(mode.Perm()), 8)},
+	}
+	resp, err := s.guestDo(ctx, http.MethodPost, "/v1/fs/dir", q, "", nil)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
+// Remove deletes the file or (if recursive) directory tree at path.
+func (s *Sandbox) Remove(ctx context.Context, path string, recursive bool) error {
+	q := url.Values{"path": {path}}
+	if recursive {
+		q.Set("recursive", "true")
+	}
+	resp, err := s.guestDo(ctx, http.MethodDelete, "/v1/fs/file", q, "", nil)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
+// guestDo performs an HTTP request against the sandbox's guest daemon via
+// the atenet router. Non-2xx responses are converted to errors. If the
+// client has AutoResume set and the router cannot reach the sandbox, the
+// sandbox is resumed and the request retried once.
+func (s *Sandbox) guestDo(ctx context.Context, method, path string, query url.Values, contentType string, body io.ReadSeeker) (*http.Response, error) {
+	if s.client.opts.RouterAddr == "" {
+		return nil, errors.New("sandbox: Options.RouterAddr is required for exec and filesystem operations")
+	}
+
+	resp, err := s.guestDoOnce(ctx, method, path, query, contentType, body)
+	if err == nil || !s.client.opts.AutoResume {
+		return resp, err
+	}
+	if !isUnreachable(err) {
+		return nil, err
+	}
+
+	// The router could not reach the sandbox; it may be suspended or
+	// paused. Resume it and retry once.
+	if resumeErr := s.Resume(ctx); resumeErr != nil {
+		return nil, errors.Join(err, resumeErr)
+	}
+	if body != nil {
+		if _, seekErr := body.Seek(0, io.SeekStart); seekErr != nil {
+			return nil, errors.Join(err, seekErr)
+		}
+	}
+	return s.guestDoOnce(ctx, method, path, query, contentType, body)
+}
+
+func (s *Sandbox) guestDoOnce(ctx context.Context, method, path string, query url.Values, contentType string, body io.Reader) (*http.Response, error) {
+	u := "http://" + s.client.opts.RouterAddr + path
+	if len(query) > 0 {
+		u += "?" + query.Encode()
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, body)
+	if err != nil {
+		return nil, fmt.Errorf("sandbox: building request: %w", err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	// The atenet router identifies the target actor by Host header.
+	req.Host = s.id + "." + s.client.opts.HostSuffix
+
+	resp, err := s.client.http.Do(req)
+	if err != nil {
+		return nil, &unreachableError{err: fmt.Errorf("sandbox: reaching %q: %w", s.id, err)}
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return resp, nil
+	}
+	defer resp.Body.Close()
+
+	payload, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+	var apiErr api.Error
+	if jsonErr := json.Unmarshal(payload, &apiErr); jsonErr == nil && apiErr.Message != "" {
+		if apiErr.Code == api.CodeNotFound {
+			return nil, fmt.Errorf("sandbox: %q: %w: %s", s.id, ErrNotFound, apiErr.Message)
+		}
+		return nil, fmt.Errorf("sandbox: %q: %s", s.id, apiErr.Message)
+	}
+	err = fmt.Errorf("sandbox: %q returned HTTP %d: %s", s.id, resp.StatusCode, bytes.TrimSpace(payload))
+	if resp.StatusCode == http.StatusBadGateway || resp.StatusCode == http.StatusServiceUnavailable ||
+		resp.StatusCode == http.StatusGatewayTimeout {
+		return nil, &unreachableError{err: err}
+	}
+	return nil, err
+}
+
+// unreachableError marks failures where the sandbox itself could not be
+// reached (as opposed to the guest returning an application error), which
+// makes the request eligible for the AutoResume retry.
+type unreachableError struct{ err error }
+
+func (e *unreachableError) Error() string { return e.err.Error() }
+func (e *unreachableError) Unwrap() error { return e.err }
+
+func isUnreachable(err error) bool {
+	var u *unreachableError
+	return errors.As(err, &u)
+}

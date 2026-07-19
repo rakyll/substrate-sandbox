@@ -1,0 +1,249 @@
+// Command sbcli is a CLI for the sandbox service. It talks directly to the
+// Substrate control plane and router using the sandbox SDK.
+//
+// Endpoints can be set with flags or the SBCLI_ATEAPI, SBCLI_ATENET, and
+// SBCLI_TEMPLATE environment variables.
+package main
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"text/tabwriter"
+
+	"github.com/rakyll/substrate-sandbox/sandbox"
+	"github.com/spf13/cobra"
+)
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func main() {
+	var (
+		ateapi     string
+		atenet     string
+		template   string
+		skipVerify bool
+
+		client *sandbox.Client
+	)
+
+	root := &cobra.Command{
+		Use:           "sbcli",
+		Short:         "Manage sandboxes on Agent Substrate",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			var err error
+			client, err = sandbox.New(sandbox.Options{
+				ControlAddr: ateapi,
+				RouterAddr:  atenet,
+				Template:    template,
+				SkipVerify:  skipVerify,
+				AutoResume:  true,
+			})
+			return err
+		},
+		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			if client != nil {
+				client.Close()
+			}
+		},
+	}
+	root.PersistentFlags().StringVar(&ateapi, "ateapi", envOr("SBCLI_ATEAPI", "localhost:8080"), "address of the ateapi gRPC control plane")
+	root.PersistentFlags().StringVar(&atenet, "atenet", envOr("SBCLI_ATENET", "localhost:8000"), "address of the atenet HTTP router")
+	root.PersistentFlags().StringVar(&template, "template", os.Getenv("SBCLI_TEMPLATE"), "ActorTemplate as namespace/name (for create)")
+	root.PersistentFlags().BoolVar(&skipVerify, "skip-verify", true, "skip TLS certificate verification on the control plane connection")
+
+	root.AddCommand(&cobra.Command{
+		Use:   "create <id>",
+		Short: "Create and start a sandbox",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			sb, err := client.Create(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Printf("created %s\n", sb.ID())
+			return nil
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "ls",
+		Short: "List sandboxes",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			infos, err := client.List(cmd.Context())
+			if err != nil {
+				return err
+			}
+			tw := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
+			fmt.Fprintln(tw, "ID\tSTATUS\tTEMPLATE")
+			for _, info := range infos {
+				fmt.Fprintf(tw, "%s\t%s\t%s/%s\n", info.ID, info.Status, info.TemplateNamespace, info.TemplateName)
+			}
+			return tw.Flush()
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "info <id>",
+		Short: "Show a sandbox's status",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			info, err := client.Sandbox(args[0]).Info(cmd.Context())
+			if err != nil {
+				return err
+			}
+			fmt.Printf("id:       %s\nstatus:   %s\ntemplate: %s/%s\n",
+				info.ID, info.Status, info.TemplateNamespace, info.TemplateName)
+			if info.WorkerPod != "" {
+				fmt.Printf("worker:   %s/%s (%s)\n", info.WorkerPodNamespace, info.WorkerPod, info.WorkerPodIP)
+			}
+			return nil
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "suspend <id>",
+		Short: "Snapshot to external storage and free the worker",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return client.Sandbox(args[0]).Suspend(cmd.Context())
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "pause <id>",
+		Short: "Snapshot locally on the node for fast resume",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return client.Sandbox(args[0]).Pause(cmd.Context())
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "resume <id>",
+		Short: "Resume from the latest snapshot",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return client.Sandbox(args[0]).Resume(cmd.Context())
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "rm <id>",
+		Short: "Delete a sandbox (suspends it first if needed)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return client.Sandbox(args[0]).Delete(cmd.Context())
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "exec <id> <cmdline>",
+		Short: "Run a shell command line in the sandbox",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			res, err := client.Sandbox(args[0]).Command(cmd.Context(), args[1])
+			if err != nil {
+				return err
+			}
+			os.Stdout.WriteString(res.Stdout)
+			os.Stderr.WriteString(res.Stderr)
+			if res.TimedOut {
+				fmt.Fprintln(os.Stderr, "sbcli: command timed out")
+			}
+			if res.ExitCode != 0 {
+				os.Exit(res.ExitCode)
+			}
+			return nil
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "read <id> <path>",
+		Short: "Print a sandbox file to stdout",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			data, err := client.Sandbox(args[0]).ReadFile(cmd.Context(), args[1])
+			if err != nil {
+				return err
+			}
+			_, err = os.Stdout.Write(data)
+			return err
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "write <id> <path>",
+		Short: "Write stdin to a sandbox file",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			data, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return err
+			}
+			return client.Sandbox(args[0]).WriteFile(cmd.Context(), args[1], data, 0o644)
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "lsdir <id> <path>",
+		Short: "List a sandbox directory",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entries, err := client.Sandbox(args[0]).ListDir(cmd.Context(), args[1])
+			if err != nil {
+				return err
+			}
+			tw := tabwriter.NewWriter(os.Stdout, 2, 4, 2, ' ', 0)
+			for _, e := range entries {
+				fmt.Fprintf(tw, "%s\t%d\t%s\t%s\n", e.ModeString, e.Size, e.ModTime.Format("2006-01-02 15:04"), e.Name)
+			}
+			return tw.Flush()
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "stat <id> <path>",
+		Short: "Stat a sandbox path",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			e, err := client.Sandbox(args[0]).Stat(cmd.Context(), args[1])
+			if err != nil {
+				return err
+			}
+			fmt.Printf("path:  %s\nmode:  %s\nsize:  %d\nmtime: %s\n", e.Path, e.ModeString, e.Size, e.ModTime)
+			return nil
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "rmpath <id> <path>",
+		Short: "Delete a file or directory tree in the sandbox",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return client.Sandbox(args[0]).Remove(cmd.Context(), args[1], true)
+		},
+	})
+
+	root.AddCommand(&cobra.Command{
+		Use:   "mkdir <id> <path>",
+		Short: "Create a directory in the sandbox",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return client.Sandbox(args[0]).Mkdir(cmd.Context(), args[1], 0o755)
+		},
+	})
+
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "sbcli:", err)
+		os.Exit(1)
+	}
+}

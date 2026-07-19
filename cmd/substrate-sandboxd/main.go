@@ -1,0 +1,42 @@
+// Command substrate-sandboxd serves the sandbox REST API. It bridges HTTP
+// clients to the Substrate control plane (ateapi) for sandbox lifecycle
+// and to the atenet router for in-sandbox exec and filesystem operations.
+package main
+
+import (
+	"flag"
+	"log"
+	"net/http"
+
+	"github.com/rakyll/substrate-sandbox/sandbox"
+	"github.com/rakyll/substrate-sandbox/service"
+)
+
+func main() {
+	var (
+		listen     = flag.String("listen", ":8081", "address to serve the REST API on")
+		ateapi     = flag.String("ateapi", "localhost:8080", "address of the ateapi gRPC control plane")
+		atenet     = flag.String("atenet", "localhost:8000", "address of the atenet HTTP router")
+		template   = flag.String("template", "", "default ActorTemplate as namespace/name")
+		hostSuffix = flag.String("host-suffix", sandbox.DefaultHostSuffix, "atenet router host suffix for actor routing")
+		skipVerify = flag.Bool("skip-verify", true, "skip TLS certificate verification on the control plane connection")
+		autoResume = flag.Bool("auto-resume", true, "resume suspended sandboxes on exec/file operations")
+	)
+	flag.Parse()
+
+	client, err := sandbox.New(sandbox.Options{
+		ControlAddr: *ateapi,
+		RouterAddr:  *atenet,
+		HostSuffix:  *hostSuffix,
+		Template:    *template,
+		SkipVerify:  *skipVerify,
+		AutoResume:  *autoResume,
+	})
+	if err != nil {
+		log.Fatalf("creating sandbox client: %v", err)
+	}
+	defer client.Close()
+
+	log.Printf("substrate-sandboxd listening on %s (ateapi %s, atenet %s)", *listen, *ateapi, *atenet)
+	log.Fatal(http.ListenAndServe(*listen, service.Handler(client)))
+}

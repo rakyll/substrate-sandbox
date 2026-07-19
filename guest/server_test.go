@@ -1,0 +1,294 @@
+package guest
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/rakyll/substrate-sandbox/internal/api"
+)
+
+func newTestServer(t *testing.T) (*httptest.Server, string) {
+	t.Helper()
+	dir := t.TempDir()
+	srv := httptest.NewServer((&Server{Workdir: dir}).Handler())
+	t.Cleanup(srv.Close)
+	return srv, dir
+}
+
+func doExec(t *testing.T, srv *httptest.Server, req api.ExecRequest) api.ExecResult {
+	t.Helper()
+	body, _ := json.Marshal(req)
+	resp, err := http.Post(srv.URL+"/v1/exec", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("exec request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(resp.Body)
+		t.Fatalf("exec returned %d: %s", resp.StatusCode, payload)
+	}
+	var res api.ExecResult
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		t.Fatalf("decoding exec result: %v", err)
+	}
+	return res
+}
+
+func TestExecCapturesOutputAndExitCode(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	res := doExec(t, srv, api.ExecRequest{Command: []string{"sh", "-c", "echo out; echo err >&2; exit 3"}})
+	if res.Stdout != "out\n" {
+		t.Errorf("stdout = %q, want %q", res.Stdout, "out\n")
+	}
+	if res.Stderr != "err\n" {
+		t.Errorf("stderr = %q, want %q", res.Stderr, "err\n")
+	}
+	if res.ExitCode != 3 {
+		t.Errorf("exit code = %d, want 3", res.ExitCode)
+	}
+}
+
+func TestExecEnvCwdStdin(t *testing.T) {
+	srv, dir := newTestServer(t)
+	sub := filepath.Join(dir, "sub")
+	os.Mkdir(sub, 0o755)
+
+	res := doExec(t, srv, api.ExecRequest{
+		Command: []string{"sh", "-c", "pwd; printf '%s\n' \"$GREETING\"; cat"},
+		Env:     map[string]string{"GREETING": "hello"},
+		Cwd:     "sub",
+		Stdin:   []byte("from stdin"),
+	})
+	want := sub + "\nhello\nfrom stdin"
+	// Resolve symlinks (macOS TMPDIR) before comparing the pwd line.
+	if got := res.Stdout; !strings.Contains(got, "hello\nfrom stdin") {
+		t.Errorf("stdout = %q, want it to end with %q", got, want)
+	}
+	if res.ExitCode != 0 {
+		t.Errorf("exit code = %d, want 0", res.ExitCode)
+	}
+}
+
+func TestExecTimeout(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	start := time.Now()
+	res := doExec(t, srv, api.ExecRequest{
+		Command: []string{"sh", "-c", "sleep 10"},
+		Timeout: "200ms",
+	})
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("timed-out exec took %v, expected to return promptly", elapsed)
+	}
+	if !res.TimedOut {
+		t.Error("TimedOut = false, want true")
+	}
+	if res.ExitCode == 0 {
+		t.Errorf("exit code = 0, want nonzero for a killed process")
+	}
+}
+
+func TestExecOutputTruncation(t *testing.T) {
+	dir := t.TempDir()
+	srv := httptest.NewServer((&Server{Workdir: dir, MaxOutputBytes: 10}).Handler())
+	defer srv.Close()
+
+	res := doExec(t, srv, api.ExecRequest{Command: []string{"sh", "-c", "printf '0123456789ABCDEF'"}})
+	if res.Stdout != "0123456789" {
+		t.Errorf("stdout = %q, want first 10 bytes", res.Stdout)
+	}
+	if !res.StdoutTruncated {
+		t.Error("StdoutTruncated = false, want true")
+	}
+}
+
+func TestExecCommandNotFound(t *testing.T) {
+	srv, _ := newTestServer(t)
+	body, _ := json.Marshal(api.ExecRequest{Command: []string{"definitely-not-a-command-xyz"}})
+	resp, err := http.Post(srv.URL+"/v1/exec", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestFileWriteReadRoundTrip(t *testing.T) {
+	srv, dir := newTestServer(t)
+	client := srv.Client()
+
+	target := filepath.Join(dir, "nested", "greeting.txt")
+	q := url.Values{"path": {target}, "mode": {"600"}, "mkdirs": {"true"}}
+	req, _ := http.NewRequest(http.MethodPut, srv.URL+"/v1/fs/file?"+q.Encode(), strings.NewReader("hello world"))
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("write status = %d, want 204", resp.StatusCode)
+	}
+
+	fi, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %o, want 600", fi.Mode().Perm())
+	}
+
+	resp, err = client.Get(srv.URL + "/v1/fs/file?path=" + url.QueryEscape(target))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	if string(data) != "hello world" {
+		t.Errorf("read back %q, want %q", data, "hello world")
+	}
+	if got := resp.Header.Get("X-File-Mode"); got != "0600" {
+		t.Errorf("X-File-Mode = %q, want 0600", got)
+	}
+}
+
+func TestReadMissingFileIs404(t *testing.T) {
+	srv, dir := newTestServer(t)
+	resp, err := http.Get(srv.URL + "/v1/fs/file?path=" + url.QueryEscape(filepath.Join(dir, "nope")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+	var apiErr api.Error
+	if err := json.NewDecoder(resp.Body).Decode(&apiErr); err != nil {
+		t.Fatalf("decoding error envelope: %v", err)
+	}
+	if apiErr.Code != api.CodeNotFound {
+		t.Errorf("code = %q, want %q", apiErr.Code, api.CodeNotFound)
+	}
+}
+
+func TestReadDirectoryIsRejected(t *testing.T) {
+	srv, dir := newTestServer(t)
+	resp, err := http.Get(srv.URL + "/v1/fs/file?path=" + url.QueryEscape(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestListDirAndStat(t *testing.T) {
+	srv, dir := newTestServer(t)
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("aaa"), 0o644)
+	os.Mkdir(filepath.Join(dir, "subdir"), 0o755)
+
+	resp, err := http.Get(srv.URL + "/v1/fs/dir?path=" + url.QueryEscape(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var listing api.ListDirResponse
+	if err := json.NewDecoder(resp.Body).Decode(&listing); err != nil {
+		t.Fatal(err)
+	}
+	if len(listing.Entries) != 2 {
+		t.Fatalf("got %d entries, want 2: %+v", len(listing.Entries), listing.Entries)
+	}
+	byName := map[string]api.DirEntry{}
+	for _, e := range listing.Entries {
+		byName[e.Name] = e
+	}
+	if e := byName["a.txt"]; e.IsDir || e.Size != 3 {
+		t.Errorf("a.txt entry = %+v, want file of size 3", e)
+	}
+	if e := byName["subdir"]; !e.IsDir {
+		t.Errorf("subdir entry = %+v, want directory", e)
+	}
+
+	resp, err = http.Get(srv.URL + "/v1/fs/stat?path=" + url.QueryEscape(filepath.Join(dir, "a.txt")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var e api.DirEntry
+	if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Name != "a.txt" || e.Size != 3 || e.IsDir {
+		t.Errorf("stat = %+v, want a.txt file of size 3", e)
+	}
+}
+
+func TestMkdirAndDelete(t *testing.T) {
+	srv, dir := newTestServer(t)
+	client := srv.Client()
+
+	nested := filepath.Join(dir, "x", "y", "z")
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/v1/fs/dir?path="+url.QueryEscape(nested), nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("mkdir status = %d, want 204", resp.StatusCode)
+	}
+	if fi, err := os.Stat(nested); err != nil || !fi.IsDir() {
+		t.Fatalf("nested dir not created: %v", err)
+	}
+
+	// Non-recursive delete of a non-empty tree fails; recursive succeeds.
+	root := filepath.Join(dir, "x")
+	req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/v1/fs/file?path="+url.QueryEscape(root), nil)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusNoContent {
+		t.Fatal("non-recursive delete of non-empty dir unexpectedly succeeded")
+	}
+
+	req, _ = http.NewRequest(http.MethodDelete, srv.URL+"/v1/fs/file?path="+url.QueryEscape(root)+"&recursive=true", nil)
+	resp, err = client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("recursive delete status = %d, want 204", resp.StatusCode)
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Errorf("directory still exists after recursive delete")
+	}
+}
+
+func TestDeleteMissingIs404(t *testing.T) {
+	srv, dir := newTestServer(t)
+	req, _ := http.NewRequest(http.MethodDelete, srv.URL+"/v1/fs/file?path="+url.QueryEscape(filepath.Join(dir, "nope")), nil)
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", resp.StatusCode)
+	}
+}
