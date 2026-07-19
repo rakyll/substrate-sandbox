@@ -15,8 +15,8 @@ import (
 func main() {
 	var (
 		listen     = flag.String("listen", "0.0.0.0:7777", "address to serve the REST API on")
-		ateapi     = flag.String("ateapi", "localhost:8080", "address of the ateapi gRPC control plane")
-		atenet     = flag.String("atenet", "localhost:8000", "address of the atenet HTTP router")
+		ateapi     = flag.String("ateapi", direct.DefaultControlAddr, "address of the ateapi gRPC control plane")
+		atenet     = flag.String("atenet", direct.DefaultRouterAddr, "address of the atenet HTTP router")
 		hostSuffix = flag.String("host-suffix", direct.DefaultHostSuffix, "atenet router host suffix for actor routing")
 		skipVerify = flag.Bool("skip-verify", true, "skip TLS certificate verification on the control plane connection")
 		autoResume = flag.Bool("auto-resume", true, "resume suspended sandboxes on exec/file operations")

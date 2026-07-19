@@ -31,6 +31,15 @@ import (
 // actors: requests with Host "<id>.<suffix>" are routed to actor <id>.
 const DefaultHostSuffix = "actors.resources.substrate.ate.dev"
 
+// DefaultControlAddr and DefaultRouterAddr are the in-cluster addresses of
+// the Substrate control plane and router, as installed by Agent Substrate
+// in the ate-system namespace. They are the defaults for a ssbx-api running
+// inside the cluster.
+const (
+	DefaultControlAddr = "ateapi.ate-system.svc:443"
+	DefaultRouterAddr  = "atenet-router.ate-system.svc:80"
+)
+
 // ErrNotFound is returned when a sandbox, file, or directory does not exist.
 var ErrNotFound = errors.New("not found")
 

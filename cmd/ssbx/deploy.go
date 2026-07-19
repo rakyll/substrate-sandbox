@@ -26,13 +26,6 @@ const defaultPauseImage = "registry.k8s.io/pause:3.10.2@sha256:f548e0e8e3dc1896c
 // apiName is the name of the REST API Deployment and Service.
 const apiName = "substrate-sandbox"
 
-// In-cluster addresses of the Substrate control plane and router, used by
-// the deployed REST API.
-const (
-	inClusterAteapi = "ateapi.ate-system.svc:443"
-	inClusterAtenet = "atenet-router.ate-system.svc:80"
-)
-
 type deployConfig struct {
 	namespace       string
 	template        string
@@ -301,11 +294,9 @@ func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) 
 					Containers: []corev1.Container{{
 						Name:  apiName,
 						Image: cfg.apiImage,
-						Args: []string{
-							"-listen", "0.0.0.0:7777",
-							"-ateapi", inClusterAteapi,
-							"-atenet", inClusterAtenet,
-						},
+						// ateapi/atenet default to the in-cluster
+						// Substrate service addresses.
+						Args: []string{"-listen", "0.0.0.0:7777"},
 						Ports: []corev1.ContainerPort{{ContainerPort: 7777}},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
