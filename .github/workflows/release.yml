@@ -68,14 +68,25 @@ jobs:
             done
           done
 
-      - name: Create GitHub release
+      # Create the release, or add the assets to it if it already exists
+      # (e.g. when the release was created in the GitHub UI, whose tag push
+      # is what triggered this workflow).
+      - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes \
-            --notes "Default deploy images baked into sbcli:
+          notes="Default deploy images baked into sbcli:
           - \`${{ steps.guestd.outputs.image }}\`
           - \`${{ steps.ateom.outputs.image }}\`
           - \`${{ steps.api.outputs.image }}\`"
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+            existing=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body -q .body)
+            printf '%s\n\n%s\n' "$existing" "$notes" | gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file -
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --notes "$notes"
+          fi
