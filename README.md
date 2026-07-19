@@ -15,15 +15,15 @@ while this project adds the sandbox-shaped API on top.
 ## Overview
 
 ```
-   ┌─────┐      ┌─────────────┐ lifecycle ┌────────────┐
-   │ SDK │      │             ├──────────▶│   ateapi   │  Substrate control plane
-   │ CLI ├─────▶│   Sandbox   │           └────────────┘
-   └─────┘      │     API     │           ┌────────────┐      ┌──────────────────────┐
-                │             ├──────────▶│   atenet   ├─────▶│ actor                │
-                └─────────────┘  cmd/fs   │   router   │      │  └ substrate-guestd  │
-                                          └────────────┘      │     /v1/cmd          │
-                                                              │     /v1/fs/*         │
-                                                              └──────────────────────┘
+   ┌─────┐      ┌─────────┐ lifecycle ┌────────────┐
+   │ SDK │      │         ├──────────▶│   ateapi   │  Substrate control plane
+   │ CLI ├─────▶│ Sandbox │           └────────────┘
+   └─────┘      │   API   │           ┌────────────┐      ┌──────────────────────┐
+                │         ├──────────▶│   atenet   ├─────▶│ actor                │
+                └─────────┘  cmd/fs   │   router   │      │  └ substrate-guestd  │
+                                      └────────────┘      │     /v1/cmd          │
+                                                          │     /v1/fs/*         │
+                                                          └──────────────────────┘
 ```
 
 - **`sandbox/`** — the Go SDK, a client of the REST API. `Create`, `Open`,
