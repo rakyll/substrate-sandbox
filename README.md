@@ -78,7 +78,7 @@ curl -X POST localhost:8081/v1/sandboxes/dev1/cmd \
 ## CLI
 
 Commands are grouped under `sandbox` (lifecycle and command execution),
-`fs` (file operations), and `system` (deployment):
+`sandbox fs` (file operations), and `system` (deployment):
 
 ```bash
 $ sbcli sandbox
@@ -88,13 +88,14 @@ Available Commands:
   cmd         Run a shell command line in the sandbox
   create      Create and start a sandbox
   delete      Delete a sandbox
+  fs          Operate on files and directories in a sandbox
   info        Show a sandbox's status
   ls          List sandboxes
   pause       Snapshot locally on the node for fast resume
   resume      Resume from the latest snapshot
   suspend     Snapshot to external storage and free the worker
 
-$ sbcli fs
+$ sbcli sandbox fs
 Operate on files and directories in a sandbox
 
 Available Commands:

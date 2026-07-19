@@ -79,7 +79,8 @@ func main() {
 		Use:   "system",
 		Short: "Manage the system deployment",
 	}
-	root.AddCommand(sandboxCmd, fsCmd, systemCmd)
+	root.AddCommand(sandboxCmd, systemCmd)
+	sandboxCmd.AddCommand(fsCmd)
 
 	systemCmd.AddCommand(newDeployCommand(&namespace, &template))
 
