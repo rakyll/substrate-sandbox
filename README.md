@@ -30,7 +30,7 @@ resumption, and deletion of sandboxes; as well as file operations and running re
 commands on the sandboxes.
 - **`cmd/ssbx`** — the CLI (`ssbx`). Provides a CLI over the REST API, and utilies to
   make it easier to deploy Substrate Sandbox.
-- **`cmd/ssbx-api`** — the REST service. It bridges clients to
+- **`cmd/ssbx-api`** — the API service. It bridges clients to
   the Substrate control plane and router.
 - **`cmd/ssbx-guest`** — the daemon server available in the sandbox. It runs
   inside every actor and serves command executions and filesystem operations.
@@ -112,7 +112,7 @@ $ ssbx deploy --help
 Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
-created from, and the substrate-sandbox REST service.
+created from, and the substrate-sandbox API service.
 ```
 
 ## SDK

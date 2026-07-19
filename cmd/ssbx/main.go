@@ -1,5 +1,5 @@
 // Command ssbx is a CLI for the sandbox service. Sandbox commands go
-// through the substrate-sandbox REST service using the sandbox SDK;
+// through the substrate-sandbox API service using the sandbox SDK;
 // system commands talk to the Kubernetes API.
 //
 // The API endpoint can be set with the --api flag or the
@@ -56,7 +56,7 @@ func main() {
 			}
 		},
 	}
-	root.PersistentFlags().StringVar(&endpoint, "api", envOr("SUBSTRATE_SANDBOX_API", "http://127.0.0.1:7777"), "base URL of the substrate-sandbox REST service")
+	root.PersistentFlags().StringVar(&endpoint, "api", envOr("SUBSTRATE_SANDBOX_API", "http://127.0.0.1:7777"), "base URL of the substrate-sandbox API service")
 	root.PersistentFlags().StringVar(&template, "template", "sandbox", "ActorTemplate name (for create)")
 	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
 

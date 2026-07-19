@@ -1,5 +1,5 @@
 // Package direct implements the sandbox abstraction directly on top of
-// Agent Substrate; it backs the substrate-sandbox REST service. A
+// Agent Substrate; it backs the substrate-sandbox API service. A
 // Sandbox wraps a Substrate actor: it can be created, suspended (full
 // snapshot to object storage), resumed, and deleted, and while running it
 // accepts remote command execution and filesystem operations served by the
@@ -10,7 +10,7 @@
 // requests by Host header to the actor's guest daemon.
 //
 // Clients outside this repository use the sandbox package, which talks to
-// the substrate-sandbox REST service instead.
+// the substrate-sandbox API service instead.
 package direct
 
 import (

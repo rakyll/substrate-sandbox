@@ -53,7 +53,7 @@ func newDeployCommand(namespace, template *string) *cobra.Command {
 		Long: `Deploy creates everything sandboxes need on a Kubernetes cluster that
 already runs the Agent Substrate system: the target namespace, a
 WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
-created from, and the substrate-sandbox REST service.
+created from, and the substrate-sandbox API service.
 
 Released ssbx binaries embed digest-pinned default images for the guest
 daemon and the worker, so only --snapshots-bucket is required:
@@ -98,8 +98,8 @@ push them with ko:
 	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", defaultAteomImage, "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
 	cmd.Flags().StringVar(&cfg.snapshotsBucket, "snapshots-bucket", "", "object-storage bucket (with optional prefix) for suspend snapshots, e.g. gs://bucket/prefix/")
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
-	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "ssbx-api image for the REST service")
-	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of REST service replicas")
+	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "ssbx-api image for the API service")
+	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of API service replicas")
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
 	cmd.Flags().Int32Var(&cfg.replicas, "replicas", 2, "number of pre-warmed worker pods")
 	cmd.Flags().StringSliceVar(&cfg.guestCommand, "guest-command", []string{"/ko-app/ssbx-guest", "-workdir", "/workspace"}, "guest container entrypoint")
@@ -273,7 +273,7 @@ func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg dep
 	return nil
 }
 
-// applyAPI deploys the substrate-sandbox REST service: a Deployment
+// applyAPI deploys the substrate-sandbox API service: a Deployment
 // pointed at the in-cluster Substrate endpoints and a Service exposing it
 // on port 80.
 func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) error {
