@@ -22,8 +22,8 @@ while this project adds the sandbox-shaped API on top.
    │ sandbox-api │       ┌────────────┐      ┌──────────────────────┐
    └─────────────┘──────▶│   atenet   ├─────▶│ actor                │
                   cmd/fs │   router   │      │  └ substrate-guestd  │
-       Host: <id>.actors.└────────────┘      │     /v1/cmd          │
-        resources.substrate.ate.dev          │     /v1/fs/*         │
+                         └────────────┘      │     /v1/cmd          │
+Host:<id>.actors.resources.substrate.ate.dev │     /v1/fs/*         │
                                              └──────────────────────┘
 ```
 
