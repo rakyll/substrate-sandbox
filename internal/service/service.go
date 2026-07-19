@@ -258,7 +258,20 @@ func (s *server) removePath(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.client.Sandbox(r.PathValue("id")).Remove(r.Context(), path); err != nil {
+	sb := s.client.Sandbox(r.PathValue("id"))
+	entry, err := sb.Stat(r.Context(), path)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if entry.IsDir {
+		writeJSON(w, http.StatusBadRequest, api.Error{
+			Code:    api.CodeNotFile,
+			Message: fmt.Sprintf("%s is a directory; use the directory endpoint", path),
+		})
+		return
+	}
+	if err := sb.Remove(r.Context(), path); err != nil {
 		writeErr(w, err)
 		return
 	}

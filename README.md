@@ -102,7 +102,7 @@ Available Commands:
   ls          List a sandbox directory
   mkdir       Create a directory in the sandbox
   read        Print a sandbox file to stdout
-  rm          Delete a file or directory tree in the sandbox
+  rm          Delete a file in the sandbox
   rmdir       Delete a directory tree in the sandbox
   stat        Stat a sandbox path
   write       Write stdin to a sandbox file
@@ -205,7 +205,7 @@ report when the cap was hit, and `timedOut` reports a timeout kill.
 | -------- | ------------------------------- | ------------------------------- |
 | `GET`    | `/v1/sandboxes/{id}/file?path=` | Read a file (raw bytes response)|
 | `POST`   | `/v1/sandboxes/{id}/file`    | Write a file                    |
-| `DELETE` | `/v1/sandboxes/{id}/file?path=` | Delete a file or directory tree |
+| `DELETE` | `/v1/sandboxes/{id}/file?path=` | Delete a file                   |
 | `GET`    | `/v1/sandboxes/{id}/dir?path=`  | List a directory                |
 | `POST`   | `/v1/sandboxes/{id}/dir`     | Create a directory (mkdir -p)   |
 | `DELETE` | `/v1/sandboxes/{id}/dir?path=`  | Delete a directory tree         |

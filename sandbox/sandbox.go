@@ -182,7 +182,8 @@ func (s *Sandbox) Mkdir(ctx context.Context, path string, mode fs.FileMode) erro
 	return s.client.doJSON(ctx, http.MethodPost, s.path("/dir"), nil, req, nil)
 }
 
-// Remove deletes the file or directory tree at path.
+// Remove deletes the file at path. It fails if path is a directory; use
+// RemoveDir for directories.
 func (s *Sandbox) Remove(ctx context.Context, path string) error {
 	return s.client.doJSON(ctx, http.MethodDelete, s.path("/file"), url.Values{"path": {path}}, nil, nil)
 }
