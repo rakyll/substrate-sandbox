@@ -54,7 +54,7 @@ README) and a snapshots bucket.
 
 ```bash
 # 1. Deploy the system: namespace, worker pool, and sandbox template.
-sbcli system deploy --snapshots-location gs://<your-bucket>/substrate-sandbox/
+sbcli system deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the sandbox API.
 kubectl port-forward svc/substrate-sandbox-api 7777:80 &

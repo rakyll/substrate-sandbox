@@ -15,18 +15,18 @@ import (
 
 func testDeployConfig() deployConfig {
 	return deployConfig{
-		namespace:         "substrate-sandbox",
-		template:          "sandbox",
-		workerPool:        "sandbox-workerpool",
-		guestdImage:       "example.com/guestd@sha256:aaaa",
-		ateomImage:        "example.com/ateom@sha256:bbbb",
-		apiImage:          "example.com/api@sha256:cccc",
-		pauseImage:        defaultPauseImage,
-		snapshotsLocation: "gs://bucket/substrate-sandbox/",
-		replicas:          3,
-		apiReplicas:       1,
-		guestdCommand:     []string{"/ko-app/substrate-guestd", "-workdir", "/workspace"},
-		poolLabels:        map[string]string{"workload": "sandbox"},
+		namespace:       "substrate-sandbox",
+		template:        "sandbox",
+		workerPool:      "sandbox-workerpool",
+		guestdImage:     "example.com/guestd@sha256:aaaa",
+		ateomImage:      "example.com/ateom@sha256:bbbb",
+		apiImage:        "example.com/api@sha256:cccc",
+		pauseImage:      defaultPauseImage,
+		snapshotsBucket: "gs://bucket/substrate-sandbox/",
+		replicas:        3,
+		apiReplicas:     1,
+		guestdCommand:   []string{"/ko-app/substrate-guestd", "-workdir", "/workspace"},
+		poolLabels:      map[string]string{"workload": "sandbox"},
 	}
 }
 
@@ -85,8 +85,8 @@ func TestRunDeployCreatesResources(t *testing.T) {
 		t.Errorf("template containers = %+v, want one guestd container with image %q",
 			template.Spec.Containers, cfg.guestdImage)
 	}
-	if template.Spec.SnapshotsConfig.Location != cfg.snapshotsLocation {
-		t.Errorf("snapshots location = %q, want %q", template.Spec.SnapshotsConfig.Location, cfg.snapshotsLocation)
+	if template.Spec.SnapshotsConfig.Location != cfg.snapshotsBucket {
+		t.Errorf("snapshots location = %q, want %q", template.Spec.SnapshotsConfig.Location, cfg.snapshotsBucket)
 	}
 	if got := template.Spec.WorkerSelector.MatchLabels["workload"]; got != "sandbox" {
 		t.Errorf("worker selector = %v, want workload=sandbox", template.Spec.WorkerSelector)

@@ -34,21 +34,21 @@ const (
 )
 
 type deployConfig struct {
-	namespace         string
-	template          string
-	workerPool        string
-	guestdImage       string
-	ateomImage        string
-	pauseImage        string
-	snapshotsLocation string
-	replicas          int32
-	apiImage          string
-	apiReplicas       int32
-	guestdCommand     []string
-	waitForReady      time.Duration
-	poolLabels        map[string]string
-	kubeconfig        string
-	kubeContext       string
+	namespace       string
+	template        string
+	workerPool      string
+	guestdImage     string
+	ateomImage      string
+	pauseImage      string
+	snapshotsBucket string
+	replicas        int32
+	apiImage        string
+	apiReplicas     int32
+	guestdCommand   []string
+	waitForReady    time.Duration
+	poolLabels      map[string]string
+	kubeconfig      string
+	kubeContext     string
 }
 
 func newDeployCommand(namespace, template *string) *cobra.Command {
@@ -63,9 +63,9 @@ WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
 created from, and the substrate-sandbox-api REST service.
 
 Released sbcli binaries embed digest-pinned default images for the guest
-daemon and the worker, so only --snapshots-location is required:
+daemon and the worker, so only --snapshots-bucket is required:
 
-  sbcli system deploy --snapshots-location gs://<bucket>/substrate-sandbox/
+  sbcli system deploy --snapshots-bucket gs://<bucket>/substrate-sandbox/
 
 Images must be pinned by digest (repo@sha256:...); Substrate rejects
 unpinned images because changing an image invalidates snapshots. To use
@@ -76,7 +76,7 @@ push them with ko:
   sbcli system deploy \
     --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
-    --snapshots-location gs://<bucket>/substrate-sandbox/ \
+    --snapshots-bucket gs://<bucket>/substrate-sandbox/ \
     --template sandbox --namespace substrate-sandbox`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -103,7 +103,7 @@ push them with ko:
 
 	cmd.Flags().StringVar(&cfg.guestdImage, "guestd-image", defaultGuestdImage, "digest-pinned substrate-guestd image (repo@sha256:...)")
 	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", defaultAteomImage, "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
-	cmd.Flags().StringVar(&cfg.snapshotsLocation, "snapshots-location", "", "object-storage location for suspend snapshots, e.g. gs://bucket/prefix/")
+	cmd.Flags().StringVar(&cfg.snapshotsBucket, "snapshots-bucket", "", "object-storage bucket (with optional prefix) for suspend snapshots, e.g. gs://bucket/prefix/")
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
 	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "substrate-sandbox-api image for the REST service")
 	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of REST service replicas")
@@ -113,7 +113,7 @@ push them with ko:
 	cmd.Flags().DurationVar(&cfg.waitForReady, "wait", 5*time.Minute, "how long to wait for the ActorTemplate to become Ready (0 to skip)")
 	cmd.Flags().StringVar(&cfg.kubeconfig, "kubeconfig", "", "path to the kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)")
 	cmd.Flags().StringVar(&cfg.kubeContext, "kube-context", "", "kubeconfig context to use")
-	cmd.MarkFlagRequired("snapshots-location")
+	cmd.MarkFlagRequired("snapshots-bucket")
 
 	return cmd
 }
@@ -260,7 +260,7 @@ func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg dep
 				},
 			}},
 			SnapshotsConfig: atev1alpha1.SnapshotsConfig{
-				Location: cfg.snapshotsLocation,
+				Location: cfg.snapshotsBucket,
 			},
 		},
 	}
