@@ -79,7 +79,7 @@ curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/exec \
 client, err := sandbox.New(sandbox.Options{
     ControlAddr: "localhost:8080",              // ateapi gRPC
     RouterAddr:  "localhost:8000",              // atenet router
-    Template:    "substrate-sandbox/sandbox",   // ActorTemplate ns/name
+    Template:    "substrate-sandbox/sandbox",   // ActorTemplate atespace/name
     SkipVerify:  true,                          // ateapi uses pod certs
     AutoResume:  true,                          // wake sandboxes on use
 })
