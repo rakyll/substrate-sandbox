@@ -78,61 +78,64 @@ func selfSignedCert() (tls.Certificate, error) {
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}, nil
 }
 
-// Status returns the current status of an actor, or STATUS_UNSPECIFIED if
-// it does not exist.
-func (s *Server) Status(id string) ateapipb.Actor_Status {
+func key(atespace, name string) string { return atespace + "/" + name }
+
+// Status returns the current status of the actor with the given name in
+// the global atespace, or STATUS_UNSPECIFIED if it does not exist.
+func (s *Server) Status(name string) ateapipb.Actor_Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	a, ok := s.actors[id]
+	a, ok := s.actors[key("", name)]
 	if !ok {
 		return ateapipb.Actor_STATUS_UNSPECIFIED
 	}
 	return a.GetStatus()
 }
 
-func (s *Server) get(id string) (*ateapipb.Actor, error) {
-	a, ok := s.actors[id]
+func (s *Server) get(ref *ateapipb.ObjectRef) (*ateapipb.Actor, error) {
+	a, ok := s.actors[key(ref.GetAtespace(), ref.GetName())]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "actor %q not found", id)
+		return nil, status.Errorf(codes.NotFound, "actor %q not found", ref.GetName())
 	}
 	return a, nil
 }
 
-func (s *Server) GetActor(ctx context.Context, req *ateapipb.GetActorRequest) (*ateapipb.GetActorResponse, error) {
+func clone(a *ateapipb.Actor) *ateapipb.Actor {
+	return proto.Clone(a).(*ateapipb.Actor)
+}
+
+func (s *Server) GetActor(ctx context.Context, req *ateapipb.GetActorRequest) (*ateapipb.Actor, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	a, err := s.get(req.GetActorId())
+	a, err := s.get(req.GetActor())
 	if err != nil {
 		return nil, err
 	}
-	return &ateapipb.GetActorResponse{Actor: proto.Clone(a).(*ateapipb.Actor)}, nil
+	return clone(a), nil
 }
 
-func (s *Server) CreateActor(ctx context.Context, req *ateapipb.CreateActorRequest) (*ateapipb.CreateActorResponse, error) {
+func (s *Server) CreateActor(ctx context.Context, req *ateapipb.CreateActorRequest) (*ateapipb.Actor, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	id := req.GetActorId()
-	if id == "" {
-		return nil, status.Error(codes.InvalidArgument, "actor_id is required")
+	actor := req.GetActor()
+	name := actor.GetMetadata().GetName()
+	if name == "" {
+		return nil, status.Error(codes.InvalidArgument, "metadata.name is required")
 	}
-	if _, ok := s.actors[id]; ok {
-		return nil, status.Errorf(codes.AlreadyExists, "actor %q already exists", id)
+	k := key(actor.GetMetadata().GetAtespace(), name)
+	if _, ok := s.actors[k]; ok {
+		return nil, status.Errorf(codes.AlreadyExists, "actor %q already exists", name)
 	}
-	a := &ateapipb.Actor{
-		ActorId:                id,
-		ActorTemplateNamespace: req.GetActorTemplateNamespace(),
-		ActorTemplateName:      req.GetActorTemplateName(),
-		Status:                 ateapipb.Actor_STATUS_SUSPENDED,
-		WorkerSelector:         req.GetWorkerSelector(),
-	}
-	s.actors[id] = a
-	return &ateapipb.CreateActorResponse{Actor: proto.Clone(a).(*ateapipb.Actor)}, nil
+	a := clone(actor)
+	a.Status = ateapipb.Actor_STATUS_SUSPENDED
+	s.actors[k] = a
+	return clone(a), nil
 }
 
 func (s *Server) ResumeActor(ctx context.Context, req *ateapipb.ResumeActorRequest) (*ateapipb.ResumeActorResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	a, err := s.get(req.GetActorId())
+	a, err := s.get(req.GetActor())
 	if err != nil {
 		return nil, err
 	}
@@ -140,45 +143,46 @@ func (s *Server) ResumeActor(ctx context.Context, req *ateapipb.ResumeActorReque
 	a.AteomPodName = "worker-0"
 	a.AteomPodNamespace = "ate-system"
 	a.AteomPodIp = "10.0.0.1"
-	return &ateapipb.ResumeActorResponse{Actor: proto.Clone(a).(*ateapipb.Actor)}, nil
+	return &ateapipb.ResumeActorResponse{Actor: clone(a)}, nil
 }
 
 func (s *Server) SuspendActor(ctx context.Context, req *ateapipb.SuspendActorRequest) (*ateapipb.SuspendActorResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	a, err := s.get(req.GetActorId())
+	a, err := s.get(req.GetActor())
 	if err != nil {
 		return nil, err
 	}
 	a.Status = ateapipb.Actor_STATUS_SUSPENDED
 	a.AteomPodName, a.AteomPodNamespace, a.AteomPodIp = "", "", ""
-	return &ateapipb.SuspendActorResponse{Actor: proto.Clone(a).(*ateapipb.Actor)}, nil
+	return &ateapipb.SuspendActorResponse{Actor: clone(a)}, nil
 }
 
 func (s *Server) PauseActor(ctx context.Context, req *ateapipb.PauseActorRequest) (*ateapipb.PauseActorResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	a, err := s.get(req.GetActorId())
+	a, err := s.get(req.GetActor())
 	if err != nil {
 		return nil, err
 	}
 	a.Status = ateapipb.Actor_STATUS_PAUSED
-	return &ateapipb.PauseActorResponse{Actor: proto.Clone(a).(*ateapipb.Actor)}, nil
+	return &ateapipb.PauseActorResponse{Actor: clone(a)}, nil
 }
 
-func (s *Server) DeleteActor(ctx context.Context, req *ateapipb.DeleteActorRequest) (*ateapipb.DeleteActorResponse, error) {
+func (s *Server) DeleteActor(ctx context.Context, req *ateapipb.DeleteActorRequest) (*ateapipb.Actor, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	a, err := s.get(req.GetActorId())
+	ref := req.GetActor()
+	a, err := s.get(ref)
 	if err != nil {
 		return nil, err
 	}
 	if a.GetStatus() != ateapipb.Actor_STATUS_SUSPENDED {
 		return nil, status.Errorf(codes.FailedPrecondition, "actor %q is %s, only suspended actors can be deleted",
-			req.GetActorId(), a.GetStatus())
+			ref.GetName(), a.GetStatus())
 	}
-	delete(s.actors, req.GetActorId())
-	return &ateapipb.DeleteActorResponse{}, nil
+	delete(s.actors, key(ref.GetAtespace(), ref.GetName()))
+	return clone(a), nil
 }
 
 func (s *Server) ListActors(ctx context.Context, req *ateapipb.ListActorsRequest) (*ateapipb.ListActorsResponse, error) {
@@ -186,7 +190,10 @@ func (s *Server) ListActors(ctx context.Context, req *ateapipb.ListActorsRequest
 	defer s.mu.Unlock()
 	resp := &ateapipb.ListActorsResponse{}
 	for _, a := range s.actors {
-		resp.Actors = append(resp.Actors, proto.Clone(a).(*ateapipb.Actor))
+		if req.GetAtespace() != "" && a.GetMetadata().GetAtespace() != req.GetAtespace() {
+			continue
+		}
+		resp.Actors = append(resp.Actors, clone(a))
 	}
 	return resp, nil
 }

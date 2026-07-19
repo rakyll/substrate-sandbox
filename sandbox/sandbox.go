@@ -19,6 +19,7 @@ const (
 	StatusSuspended  Status = "suspended"
 	StatusPausing    Status = "pausing"
 	StatusPaused     Status = "paused"
+	StatusCrashed    Status = "crashed"
 )
 
 // Info is a point-in-time snapshot of a sandbox's control-plane state.
@@ -48,6 +49,8 @@ func statusFromProto(s ateapipb.Actor_Status) Status {
 		return StatusPausing
 	case ateapipb.Actor_STATUS_PAUSED:
 		return StatusPaused
+	case ateapipb.Actor_STATUS_CRASHED:
+		return StatusCrashed
 	default:
 		return StatusUnknown
 	}
@@ -55,7 +58,7 @@ func statusFromProto(s ateapipb.Actor_Status) Status {
 
 func infoFromActor(a *ateapipb.Actor) Info {
 	return Info{
-		ID:                 a.GetActorId(),
+		ID:                 a.GetMetadata().GetName(),
 		Status:             statusFromProto(a.GetStatus()),
 		TemplateNamespace:  a.GetActorTemplateNamespace(),
 		TemplateName:       a.GetActorTemplateName(),
@@ -76,18 +79,18 @@ func (s *Sandbox) ID() string { return s.id }
 
 // Info fetches the sandbox's current control-plane state.
 func (s *Sandbox) Info(ctx context.Context) (Info, error) {
-	resp, err := s.client.control.GetActor(ctx, &ateapipb.GetActorRequest{ActorId: s.id})
+	actor, err := s.client.control.GetActor(ctx, &ateapipb.GetActorRequest{Actor: s.client.ref(s.id)})
 	if err != nil {
 		return Info{}, fmt.Errorf("sandbox: getting %q: %w", s.id, wrapGRPCError(err))
 	}
-	return infoFromActor(resp.GetActor()), nil
+	return infoFromActor(actor), nil
 }
 
 // Resume restores the sandbox from its latest snapshot onto an available
 // worker. It is a no-op on the control plane if the sandbox is already
 // running.
 func (s *Sandbox) Resume(ctx context.Context) error {
-	_, err := s.client.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{ActorId: s.id})
+	_, err := s.client.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{Actor: s.client.ref(s.id)})
 	if err != nil {
 		return fmt.Errorf("sandbox: resuming %q: %w", s.id, wrapGRPCError(err))
 	}
@@ -98,7 +101,7 @@ func (s *Sandbox) Resume(ctx context.Context) error {
 // external storage and frees its worker. The sandbox can later be resumed
 // on any eligible worker.
 func (s *Sandbox) Suspend(ctx context.Context) error {
-	_, err := s.client.control.SuspendActor(ctx, &ateapipb.SuspendActorRequest{ActorId: s.id})
+	_, err := s.client.control.SuspendActor(ctx, &ateapipb.SuspendActorRequest{Actor: s.client.ref(s.id)})
 	if err != nil {
 		return fmt.Errorf("sandbox: suspending %q: %w", s.id, wrapGRPCError(err))
 	}
@@ -108,7 +111,7 @@ func (s *Sandbox) Suspend(ctx context.Context) error {
 // Pause snapshots the sandbox but keeps the snapshot local to the node for
 // faster resume. Unlike Suspend, the state does not survive node loss.
 func (s *Sandbox) Pause(ctx context.Context) error {
-	_, err := s.client.control.PauseActor(ctx, &ateapipb.PauseActorRequest{ActorId: s.id})
+	_, err := s.client.control.PauseActor(ctx, &ateapipb.PauseActorRequest{Actor: s.client.ref(s.id)})
 	if err != nil {
 		return fmt.Errorf("sandbox: pausing %q: %w", s.id, wrapGRPCError(err))
 	}
@@ -128,7 +131,7 @@ func (s *Sandbox) Delete(ctx context.Context) error {
 			return fmt.Errorf("sandbox: suspending %q before delete: %w", s.id, err)
 		}
 	}
-	_, err = s.client.control.DeleteActor(ctx, &ateapipb.DeleteActorRequest{ActorId: s.id})
+	_, err = s.client.control.DeleteActor(ctx, &ateapipb.DeleteActorRequest{Actor: s.client.ref(s.id)})
 	if err != nil {
 		return fmt.Errorf("sandbox: deleting %q: %w", s.id, wrapGRPCError(err))
 	}

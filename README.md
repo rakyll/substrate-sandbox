@@ -1,7 +1,6 @@
 # substrate-sandbox
 
-A sandboxing service on top of [Agent Substrate](https://github.com/agent-substrate/substrate),
-in the spirit of Claude Sandbox: isolated, stateful execution environments
+A sandboxing service on top of [Agent Substrate](https://github.com/agent-substrate/substrate): isolated, stateful execution environments
 that can be **suspended** (full memory + filesystem snapshot to object
 storage), **resumed** on any available worker, and driven remotely with
 **command execution** and **filesystem operations**.
@@ -37,7 +36,7 @@ while this project adds the sandbox-shaped API on top.
   a command creates survives suspend/resume.
 - **`cmd/substrate-sandboxd`** — a REST service exposing the same
   abstraction to any language (see the HTTP API below).
-- **`cmd/sbcli`** — a small CLI over the SDK.
+- **`cmd/sbcli`** — a CLI.
 
 ## Quickstart
 
@@ -55,7 +54,7 @@ kubectl port-forward -n ate-system svc/ateapi 8080:443 &
 kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 
 # 3. Install and use the CLI (installs to $GOBIN, or $GOPATH/bin).
-go install github.com/rakyll/substrate-sandbox/cmd/sbcli
+go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
 
 sbcli create dev-1 --template substrate-sandbox/sandbox
 sbcli exec dev-1 'echo hello > /workspace/note.txt'
@@ -130,8 +129,3 @@ make install   # go install sbcli and substrate-sandboxd
 make test      # unit + integration tests (fake control plane & router)
 make vet
 ```
-
-Note: run `go install` from a clone of this repository. The versioned form
-(`go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest`) does
-not work because the module pins Substrate to a local checkout via a
-`replace` directive, which `go install pkg@version` ignores.

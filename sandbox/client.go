@@ -50,6 +50,10 @@ type Options struct {
 	// "namespace/name".
 	Template string
 
+	// Atespace is the Substrate atespace sandboxes live in. Empty means
+	// the global scope.
+	Atespace string
+
 	// SkipVerify disables TLS certificate verification on the control
 	// plane connection. Set this when talking to a port-forwarded ateapi,
 	// which serves with pod certificates not signed by a public CA (the
@@ -177,25 +181,33 @@ func (c *Client) Create(ctx context.Context, id string, opts ...CreateOption) (*
 		return nil, err
 	}
 
-	req := &ateapipb.CreateActorRequest{
-		ActorId:                id,
+	actor := &ateapipb.Actor{
+		Metadata: &ateapipb.ResourceMetadata{
+			Atespace: c.opts.Atespace,
+			Name:     id,
+		},
 		ActorTemplateNamespace: namespace,
 		ActorTemplateName:      name,
 	}
 	if len(cfg.workerSelector) > 0 {
-		req.WorkerSelector = &ateapipb.Selector{MatchLabels: cfg.workerSelector}
+		actor.WorkerSelector = &ateapipb.Selector{MatchLabels: cfg.workerSelector}
 	}
-	if _, err := c.control.CreateActor(ctx, req); err != nil {
+	if _, err := c.control.CreateActor(ctx, &ateapipb.CreateActorRequest{Actor: actor}); err != nil {
 		return nil, fmt.Errorf("sandbox: creating %q: %w", id, wrapGRPCError(err))
 	}
 
 	sb := &Sandbox{id: id, client: c}
 	if !cfg.noStart {
-		if _, err := c.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{ActorId: id, Boot: cfg.boot}); err != nil {
+		if _, err := c.control.ResumeActor(ctx, &ateapipb.ResumeActorRequest{Actor: c.ref(id), Boot: cfg.boot}); err != nil {
 			return sb, fmt.Errorf("sandbox: starting %q: %w", id, wrapGRPCError(err))
 		}
 	}
 	return sb, nil
+}
+
+// ref returns the ObjectRef identifying the actor backing sandbox id.
+func (c *Client) ref(id string) *ateapipb.ObjectRef {
+	return &ateapipb.ObjectRef{Atespace: c.opts.Atespace, Name: id}
 }
 
 // Open returns a handle to an existing sandbox, verifying it exists.
@@ -219,6 +231,7 @@ func (c *Client) List(ctx context.Context) ([]Info, error) {
 	var pageToken string
 	for {
 		resp, err := c.control.ListActors(ctx, &ateapipb.ListActorsRequest{
+			Atespace:  c.opts.Atespace,
 			PageSize:  500,
 			PageToken: pageToken,
 		})
