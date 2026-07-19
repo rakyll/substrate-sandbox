@@ -63,7 +63,7 @@ sbcli sandbox create dev1
 sbcli sandbox cmd dev1 'echo hello > /workspace/note.txt'
 sbcli sandbox suspend dev1
 sbcli sandbox cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
-sbcli sandbox rm dev1
+sbcli sandbox delete dev1
 ```
 
 Or run the REST service:
@@ -87,11 +87,11 @@ Manage sandbox lifecycle and run commands
 Available Commands:
   cmd         Run a shell command line in the sandbox
   create      Create and start a sandbox
+  delete      Delete a sandbox
   info        Show a sandbox's status
   ls          List sandboxes
   pause       Snapshot locally on the node for fast resume
   resume      Resume from the latest snapshot
-  rm          Delete a sandbox
   suspend     Snapshot to external storage and free the worker
 
 $ sbcli fs

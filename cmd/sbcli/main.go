@@ -161,7 +161,7 @@ func main() {
 	})
 
 	sandboxCmd.AddCommand(&cobra.Command{
-		Use:   "rm <id>",
+		Use:   "delete <id>",
 		Short: "Delete a sandbox",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
