@@ -1,6 +1,4 @@
-BUCKET_NAME ?=
-
-.PHONY: build install test vet deploy clean
+.PHONY: build install test vet clean
 
 build:
 	go build ./...
@@ -16,12 +14,6 @@ test:
 
 vet:
 	go vet ./...
-
-# Deploy the WorkerPool + ActorTemplate and build/push the guest image
-# with ko. Requires KO_DOCKER_REPO and BUCKET_NAME to be set.
-deploy:
-	@test -n "$(BUCKET_NAME)" || (echo "set BUCKET_NAME to the snapshots bucket" && exit 1)
-	BUCKET_NAME=$(BUCKET_NAME) envsubst < manifests/sandbox.yaml.tmpl | ko apply -f -
 
 clean:
 	rm -rf bin
