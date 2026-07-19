@@ -146,11 +146,6 @@ sb.Delete(ctx)
 See [examples/quickstart](examples/quickstart/main.go) for a complete
 program.
 
-`Suspend` writes the snapshot to object storage and survives node loss;
-`Pause` keeps it on the node for faster resume. The API service resumes
-suspended sandboxes transparently on command and file operations (its
-`-auto-resume` flag, on by default).
-
 ## API
 
 `substrate-sandbox-api` serves the REST API. `sbcli system deploy` runs it
