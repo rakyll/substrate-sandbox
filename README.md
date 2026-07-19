@@ -1,6 +1,6 @@
 # substrate-sandbox
 
-A sandboxing service on top of [Agent Substrate](https://github.com/agent-substrate/substrate):isolated, stateful execution environments
+A sandboxing service on top of [Agent Substrate](https://github.com/agent-substrate/substrate): isolated, stateful execution environments
 that can be **suspended** (full memory + filesystem snapshot to object
 storage), **resumed** on any available worker, and driven remotely with
 **command execution** and **filesystem operations**.
@@ -108,7 +108,7 @@ if err != nil {
 fmt.Println(res.Stdout, res.ExitCode)
 
 sb.Suspend(ctx)
-b.Resume(ctx)
+sb.Resume(ctx)
 sb.Delete(ctx)
 ```
 
@@ -121,21 +121,77 @@ file operations transparently resume a suspended sandbox and retry.
 
 ## API
 
-| Method & path                        | Description                              |
-| ------------------------------------ | ---------------------------------------- |
-| `POST /v1/sandboxes`                 | create (`{"id", "template", "namespace"?, "start"?}`) |
-| `GET /v1/sandboxes`                  | list                                     |
-| `GET /v1/sandboxes/{id}`             | status                                   |
-| `DELETE /v1/sandboxes/{id}`          | delete                                   |
-| `POST /v1/sandboxes/{id}/suspend`    | snapshot to storage, free worker         |
-| `POST /v1/sandboxes/{id}/pause`      | snapshot locally for fast resume         |
-| `POST /v1/sandboxes/{id}/resume`     | restore from latest snapshot             |
-| `POST /v1/sandboxes/{id}/exec`       | run a command (`api.ExecRequest`)        |
-| `GET /v1/sandboxes/{id}/files?path=` | read file (raw bytes)                    |
-| `PUT /v1/sandboxes/{id}/files?path=&mode=` | write file (raw body)              |
-| `DELETE /v1/sandboxes/{id}/files?path=` | delete file or directory tree        |
-| `GET /v1/sandboxes/{id}/dir?path=`   | list directory                           |
-| `POST /v1/sandboxes/{id}/dir?path=`  | mkdir -p                                 |
-| `GET /v1/sandboxes/{id}/stat?path=`  | stat                                     |
+`substrate-sandboxd` serves the REST API (default `:8081`). Responses are
+JSON unless noted.
 
-Errors are `{"error": "...", "code": "not_found" | "invalid_argument" | ...}`.
+### Sandboxes
+
+| Method   | Path                 | Description                            |
+| -------- | -------------------- | -------------------------------------- |
+| `POST`   | `/v1/sandboxes`      | Create a sandbox                        |
+| `GET`    | `/v1/sandboxes`      | List sandboxes                          |
+| `GET`    | `/v1/sandboxes/{id}` | Get a sandbox's status                  |
+| `DELETE` | `/v1/sandboxes/{id}` | Delete (suspends first if running)      |
+
+Create body:
+
+```json
+{
+  "id": "sandbox-dev",              // required, DNS-1123 label
+  "template": "sandbox",            // required, ActorTemplate name
+  "namespace": "substrate-sandbox", // optional, defaults to "default"
+  "start": true                     // optional, defaults to true
+}
+```
+
+### Lifecycle
+
+| Method | Path                         | Description                              |
+| ------ | ---------------------------- | ---------------------------------------- |
+| `POST` | `/v1/sandboxes/{id}/suspend` | Snapshot to object storage, free worker  |
+| `POST` | `/v1/sandboxes/{id}/pause`   | Snapshot locally on node for fast resume |
+| `POST` | `/v1/sandboxes/{id}/resume`  | Restore from the latest snapshot         |
+
+Each returns the sandbox's new status: `{"id": "...", "status": "suspended", ...}`.
+
+### Execution
+
+`POST /v1/sandboxes/{id}/exec`
+
+```json
+// request                                  // response
+{                                           {
+  "command": ["sh", "-c", "make test"],       "stdout": "ok\n",
+  "cwd": "/workspace/app",                    "stderr": "",
+  "env": {"CI": "true"},                      "exitCode": 0,
+  "timeout": "60s"                            "duration": "1.2s"
+}                                           }
+```
+
+Output is capped at 2 MiB per stream; `stdoutTruncated`/`stderrTruncated`
+report when the cap was hit, and `timedOut` reports a timeout kill.
+
+### Filesystem
+
+| Method   | Path                                      | Description                    |
+| -------- | ----------------------------------------- | ------------------------------ |
+| `GET`    | `/v1/sandboxes/{id}/files?path=`          | Read a file (raw bytes)        |
+| `PUT`    | `/v1/sandboxes/{id}/files?path=&mode=644` | Write a file (raw body)        |
+| `DELETE` | `/v1/sandboxes/{id}/files?path=`          | Delete a file or directory tree|
+| `GET`    | `/v1/sandboxes/{id}/dir?path=`            | List a directory               |
+| `POST`   | `/v1/sandboxes/{id}/dir?path=&mode=755`   | Create a directory (mkdir -p)  |
+| `GET`    | `/v1/sandboxes/{id}/stat?path=`           | Stat a path                    |
+
+Relative paths resolve against the guest's workdir (`/workspace` in the
+shipped template). Writes create missing parent directories.
+
+### Errors
+
+Non-2xx responses carry a JSON envelope:
+
+```json
+{"error": "sandbox \"sandbox-dev\" not found", "code": "not_found"}
+```
+
+Codes: `not_found`, `invalid_argument`, `is_directory`, `not_directory`,
+`internal`.
