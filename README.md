@@ -215,7 +215,7 @@ shipped template). Writes create missing parent directories.
 
 ### Built-in Tools
 
-TODO.
+TODO: The project will expose a built-in shell tool and file system tools.
 
 ### Errors
 
