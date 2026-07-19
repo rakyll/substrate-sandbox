@@ -14,7 +14,7 @@ import (
 
 func main() {
 	var (
-		listen     = flag.String("listen", ":8081", "address to serve the REST API on")
+		listen     = flag.String("listen", "0.0.0.0:7777", "address to serve the REST API on")
 		ateapi     = flag.String("ateapi", "localhost:8080", "address of the ateapi gRPC control plane")
 		atenet     = flag.String("atenet", "localhost:8000", "address of the atenet HTTP router")
 		hostSuffix = flag.String("host-suffix", direct.DefaultHostSuffix, "atenet router host suffix for actor routing")

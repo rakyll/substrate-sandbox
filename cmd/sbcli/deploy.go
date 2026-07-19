@@ -175,7 +175,7 @@ func runDeploy(ctx context.Context, cmd *cobra.Command, kube kubernetes.Interfac
 	if err := applyAPI(ctx, kube, cfg); err != nil {
 		return err
 	}
-	cmd.Printf("api %s/%s applied (%d replicas); reach it with: kubectl port-forward -n %s svc/%s 8081:80\n",
+	cmd.Printf("api %s/%s applied (%d replicas); reach it with: kubectl port-forward -n %s svc/%s 7777:80\n",
 		cfg.namespace, apiName, cfg.apiReplicas, cfg.namespace, apiName)
 
 	if cfg.waitForReady <= 0 {
@@ -302,16 +302,16 @@ func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) 
 						Name:  apiName,
 						Image: cfg.apiImage,
 						Args: []string{
-							"-listen", ":8081",
+							"-listen", "0.0.0.0:7777",
 							"-ateapi", inClusterAteapi,
 							"-atenet", inClusterAtenet,
 						},
-						Ports: []corev1.ContainerPort{{ContainerPort: 8081}},
+						Ports: []corev1.ContainerPort{{ContainerPort: 7777}},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
 									Path: "/healthz",
-									Port: intstr.FromInt32(8081),
+									Port: intstr.FromInt32(7777),
 								},
 							},
 						},
@@ -345,7 +345,7 @@ func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) 
 			Selector: labels,
 			Ports: []corev1.ServicePort{{
 				Port:       80,
-				TargetPort: intstr.FromInt32(8081),
+				TargetPort: intstr.FromInt32(7777),
 			}},
 		},
 	}

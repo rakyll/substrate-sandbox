@@ -57,7 +57,7 @@ func main() {
 			}
 		},
 	}
-	root.PersistentFlags().StringVar(&endpoint, "api", envOr("SBCLI_API", "http://localhost:8081"), "base URL of the substrate-sandbox-api REST service")
+	root.PersistentFlags().StringVar(&endpoint, "api", envOr("SBCLI_API", "http://localhost:7777"), "base URL of the substrate-sandbox-api REST service")
 	root.PersistentFlags().StringVar(&template, "template", "sandbox", "ActorTemplate name (for create)")
 	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
 

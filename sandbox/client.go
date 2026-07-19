@@ -24,7 +24,7 @@ var ErrNotFound = errors.New("not found")
 // ClientOptions configures a Client.
 type ClientOptions struct {
 	// Endpoint is the base URL of the substrate-sandbox-api REST service,
-	// e.g. "http://localhost:8081" (typically a port-forward of
+	// e.g. "http://localhost:7777" (typically a port-forward of
 	// svc/substrate-sandbox-api). A bare host:port implies http.
 	// Required.
 	Endpoint string

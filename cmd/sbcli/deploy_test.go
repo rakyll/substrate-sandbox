@@ -115,8 +115,8 @@ func TestRunDeployCreatesResources(t *testing.T) {
 	if service.Spec.Selector["app"] != apiName {
 		t.Errorf("api service selector = %v, want app=%s", service.Spec.Selector, apiName)
 	}
-	if len(service.Spec.Ports) != 1 || service.Spec.Ports[0].Port != 80 || service.Spec.Ports[0].TargetPort.IntValue() != 8081 {
-		t.Errorf("api service ports = %+v, want 80 -> 8081", service.Spec.Ports)
+	if len(service.Spec.Ports) != 1 || service.Spec.Ports[0].Port != 80 || service.Spec.Ports[0].TargetPort.IntValue() != 7777 {
+		t.Errorf("api service ports = %+v, want 80 -> 7777", service.Spec.Ports)
 	}
 }
 

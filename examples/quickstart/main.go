@@ -4,7 +4,7 @@
 //
 // It expects a port-forward to the substrate-sandbox-api service:
 //
-//	kubectl port-forward svc/substrate-sandbox-api 8081:80
+//	kubectl port-forward svc/substrate-sandbox-api 7777:80
 package main
 
 import (
@@ -21,7 +21,7 @@ func main() {
 	ctx := context.Background()
 
 	client, err := sandbox.NewClient(sandbox.ClientOptions{
-		Endpoint: "http://localhost:8081",
+		Endpoint: "http://localhost:7777",
 		Template: "sandbox",
 	})
 	if err != nil {

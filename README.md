@@ -57,7 +57,7 @@ README) and a snapshots bucket.
 sbcli system deploy --snapshots-location gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the sandbox API.
-kubectl port-forward svc/substrate-sandbox-api 8081:80 &
+kubectl port-forward svc/substrate-sandbox-api 7777:80 &
 
 # 3. Create and use a sandbox.
 sbcli sandbox create dev1
@@ -70,8 +70,8 @@ sbcli sandbox delete dev1
 Or use the REST API directly:
 
 ```bash
-curl -X POST localhost:8081/v1/sandboxes -d '{"id":"dev1"}'
-curl -X POST localhost:8081/v1/sandboxes/dev1/cmd \
+curl -X POST localhost:7777/v1/sandboxes -d '{"id":"dev1"}'
+curl -X POST localhost:7777/v1/sandboxes/dev1/cmd \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
 
@@ -117,7 +117,7 @@ Available Commands:
 
 ```go
 client, err := sandbox.NewClient(sandbox.ClientOptions{
-    Endpoint: "http://localhost:8081",          // substrate-sandbox-api
+    Endpoint: "http://localhost:7777",          // substrate-sandbox-api
     Template: "sandbox",                        // ActorTemplate name
 })
 if err != nil {
@@ -150,7 +150,7 @@ program.
 
 `substrate-sandbox-api` serves the REST API. `sbcli system deploy` runs it
 in-cluster as the `substrate-sandbox-api` service (port 80); it can also be
-run standalone (default `:8081`). Responses are JSON unless noted.
+run standalone (default `0.0.0.0:7777`). Responses are JSON unless noted.
 
 ### Sandboxes
 
