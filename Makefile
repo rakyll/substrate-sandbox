@@ -1,11 +1,15 @@
 BUCKET_NAME ?=
 
-.PHONY: build test vet deploy clean
+.PHONY: build install test vet deploy clean
 
 build:
 	go build ./...
 	go build -o bin/sbcli ./cmd/sbcli
 	go build -o bin/substrate-sandboxd ./cmd/substrate-sandboxd
+
+# Install sbcli and substrate-sandboxd to $GOBIN (or $GOPATH/bin).
+install:
+	go install ./cmd/sbcli ./cmd/substrate-sandboxd
 
 test:
 	go test ./...

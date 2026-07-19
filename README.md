@@ -128,7 +128,13 @@ Errors are `{"error": "...", "code": "not_found" | "invalid_argument" | ...}`.
 ## Development
 
 ```bash
-make build   # build SDK, guest daemon, CLI
-make test    # unit + integration tests (fake control plane & router)
+make build     # build SDK, guest daemon, CLI
+make install   # go install sbcli and substrate-sandboxd
+make test      # unit + integration tests (fake control plane & router)
 make vet
 ```
+
+Note: install from a clone of this repository (`go install ./cmd/sbcli`);
+`go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest` does not
+work because the module pins Substrate to a local checkout via a `replace`
+directive, which `go install pkg@version` ignores.
