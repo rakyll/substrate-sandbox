@@ -38,17 +38,21 @@ Prerequisites: a cluster with Agent Substrate installed (see the Substrate
 README), `ko`, and a snapshots bucket.
 
 ```bash
-# 1. Deploy the worker pool and sandbox template.
-export KO_DOCKER_REPO=gcr.io/<your-project>
-make deploy BUCKET_NAME=<your-bucket>
-kubectl wait --for=condition=Ready actortemplate/sandbox -n substrate-sandbox --timeout=5m
+# 1. Install the CLI (installs to $GOBIN, or $GOPATH/bin).
+go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
 
-# 2. Port-forward the Substrate control plane and router.
+# 2. Deploy the system: namespace, worker pool, and sandbox template.
+#    Images must be digest-pinned; build and push them with ko.
+export KO_DOCKER_REPO=gcr.io/<your-project>
+sbcli deploy \
+  --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
+  --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
+  --snapshots-location gs://<your-bucket>/substrate-sandbox/ \
+  --template sandbox --namespace substrate-sandbox
+
+# 3. Port-forward the Substrate control plane and router.
 kubectl port-forward -n ate-system svc/ateapi 8080:443 &
 kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
-
-# 3. Install and use the CLI (installs to $GOBIN, or $GOPATH/bin).
-go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
 
 sbcli create sandbox-dev --template sandbox --namespace substrate-sandbox
 sbcli exec sandbox-dev 'echo hello > /workspace/note.txt'

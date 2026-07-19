@@ -21,20 +21,19 @@ import (
 const defaultPauseImage = "registry.k8s.io/pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4"
 
 type deployConfig struct {
-	namespace          string
-	template           string
-	workerPool         string
-	guestdImage        string
-	ateomImage         string
-	pauseImage         string
-	snapshotsLocation  string
-	replicas           int32
-	guestdCommand      []string
-	waitForReady       time.Duration
-	poolLabels         map[string]string
-	kubeconfig         string
-	kubeContext        string
-	skipNamespaceSetup bool
+	namespace         string
+	template          string
+	workerPool        string
+	guestdImage       string
+	ateomImage        string
+	pauseImage        string
+	snapshotsLocation string
+	replicas          int32
+	guestdCommand     []string
+	waitForReady      time.Duration
+	poolLabels        map[string]string
+	kubeconfig        string
+	kubeContext       string
 }
 
 func newDeployCommand(namespace, template *string) *cobra.Command {
