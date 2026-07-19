@@ -118,12 +118,3 @@ file operations transparently resume a suspended sandbox and retry.
 | `GET /v1/sandboxes/{id}/stat?path=`  | stat                                     |
 
 Errors are `{"error": "...", "code": "not_found" | "invalid_argument" | ...}`.
-
-## Development
-
-```bash
-make build     # build SDK, guest daemon, CLI
-make install   # go install sbcli and substrate-sandboxd
-make test      # unit + integration tests (fake control plane & router)
-make vet
-```
