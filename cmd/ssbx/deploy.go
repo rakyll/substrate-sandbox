@@ -185,7 +185,7 @@ func runDeploy(ctx context.Context, cmd *cobra.Command, kube kubernetes.Interfac
 	if err := waitTemplateReady(ctx, ate, cfg.namespace, cfg.template, cfg.waitForReady); err != nil {
 		return err
 	}
-	cmd.Printf("actortemplate %s/%s is Ready; create sandboxes with: ssbx sandbox create <id> --template %s --namespace %s\n",
+	cmd.Printf("actortemplate %s/%s is Ready; create sandboxes with: ssbx create <id> --template %s --namespace %s\n",
 		cfg.namespace, cfg.template, cfg.template, cfg.namespace)
 	return nil
 }
