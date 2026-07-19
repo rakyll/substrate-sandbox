@@ -61,11 +61,11 @@ ssbx deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
 kubectl port-forward svc/substrate-sandbox 7777:7777 &
 
 # 3. Create and use a sandbox.
-ssbx sandbox create dev1
-ssbx sandbox cmd dev1 'echo hello > /workspace/note.txt'
-ssbx sandbox suspend dev1
-ssbx sandbox cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
-ssbx sandbox delete dev1
+ssbx create dev1
+ssbx cmd dev1 'echo hello > /workspace/note.txt'
+ssbx suspend dev1
+ssbx cmd dev1 'cat /workspace/note.txt' # auto-resumes; prints hello
+ssbx delete dev1
 ```
 
 Or use the REST API directly:
@@ -78,18 +78,18 @@ curl -X POST localhost:7777/v1/sandboxes/dev1/cmd \
 
 ## CLI
 
-Sandbox commands are grouped under `sandbox` (lifecycle and command
-execution) and `sandbox fs` (file operations); `deploy` sets up the system
-on a cluster:
+Lifecycle and command execution are top-level commands; file operations are
+grouped under `fs`; `deploy` sets up the system on a cluster:
 
 ```bash
-$ ssbx sandbox
-Manage sandbox lifecycle and run commands
+$ ssbx
+Manage sandboxes on Agent Substrate
 
 Available Commands:
   cmd         Run a shell command line in the sandbox
   create      Create and start a sandbox
   delete      Delete a sandbox
+  deploy      Deploy the system to a cluster running Agent Substrate
   fs          Operate on files and directories in a sandbox
   info        Show a sandbox's status
   ls          List sandboxes
@@ -97,7 +97,7 @@ Available Commands:
   resume      Resume from the latest snapshot
   suspend     Snapshot to external storage and free the worker
 
-$ ssbx sandbox fs
+$ ssbx fs
 Operate on files and directories in a sandbox
 
 Available Commands:

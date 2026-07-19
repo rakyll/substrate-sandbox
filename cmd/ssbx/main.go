@@ -60,20 +60,15 @@ func main() {
 	root.PersistentFlags().StringVar(&template, "template", "sandbox", "ActorTemplate name (for create)")
 	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
 
-	sandboxCmd := &cobra.Command{
-		Use:   "sandbox",
-		Short: "Manage sandbox lifecycle and run commands",
-	}
 	fsCmd := &cobra.Command{
 		Use:   "fs",
 		Short: "Operate on files and directories in a sandbox",
 	}
-	root.AddCommand(sandboxCmd)
-	sandboxCmd.AddCommand(fsCmd)
+	root.AddCommand(fsCmd)
 
 	root.AddCommand(newDeployCommand(&namespace, &template))
 
-	sandboxCmd.AddCommand(&cobra.Command{
+	root.AddCommand(&cobra.Command{
 		Use:   "create <id>",
 		Short: "Create and start a sandbox",
 		Args:  cobra.ExactArgs(1),
@@ -87,7 +82,7 @@ func main() {
 		},
 	})
 
-	sandboxCmd.AddCommand(&cobra.Command{
+	root.AddCommand(&cobra.Command{
 		Use:   "ls",
 		Short: "List sandboxes",
 		Args:  cobra.NoArgs,
@@ -105,7 +100,7 @@ func main() {
 		},
 	})
 
-	sandboxCmd.AddCommand(&cobra.Command{
+	root.AddCommand(&cobra.Command{
 		Use:   "info <id>",
 		Short: "Show a sandbox's status",
 		Args:  cobra.ExactArgs(1),
@@ -123,7 +118,7 @@ func main() {
 		},
 	})
 
-	sandboxCmd.AddCommand(&cobra.Command{
+	root.AddCommand(&cobra.Command{
 		Use:   "suspend <id>",
 		Short: "Snapshot to external storage and free the worker",
 		Args:  cobra.ExactArgs(1),
@@ -132,7 +127,7 @@ func main() {
 		},
 	})
 
-	sandboxCmd.AddCommand(&cobra.Command{
+	root.AddCommand(&cobra.Command{
 		Use:   "pause <id>",
 		Short: "Snapshot locally on the node for fast resume",
 		Args:  cobra.ExactArgs(1),
@@ -141,7 +136,7 @@ func main() {
 		},
 	})
 
-	sandboxCmd.AddCommand(&cobra.Command{
+	root.AddCommand(&cobra.Command{
 		Use:   "resume <id>",
 		Short: "Resume from the latest snapshot",
 		Args:  cobra.ExactArgs(1),
@@ -150,7 +145,7 @@ func main() {
 		},
 	})
 
-	sandboxCmd.AddCommand(&cobra.Command{
+	root.AddCommand(&cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a sandbox",
 		Args:  cobra.ExactArgs(1),
@@ -159,7 +154,7 @@ func main() {
 		},
 	})
 
-	sandboxCmd.AddCommand(&cobra.Command{
+	root.AddCommand(&cobra.Command{
 		Use:   "cmd <id> <cmdline>",
 		Short: "Run a shell command line in the sandbox",
 		Args:  cobra.ExactArgs(2),
