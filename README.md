@@ -63,8 +63,8 @@ kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 # 3. Create and use a sandbox.
 sbcli create sandbox-dev --template sandbox --namespace substrate-sandbox
 sbcli cmd sandbox-dev 'echo hello > /workspace/note.txt'
-sbcli suspend sandbox-dev          # snapshot + free the worker
-sbcli cmd sandbox-dev 'cat /workspace/note.txt'   # auto-resumes; prints hello
+sbcli suspend sandbox-dev
+sbcli cmd sandbox-dev 'cat /workspace/note.txt' # auto-resumes; prints hello
 sbcli rm sandbox-dev
 ```
 
