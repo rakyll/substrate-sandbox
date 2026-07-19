@@ -16,7 +16,7 @@ while this project adds the sandbox-shaped API on top.
 ```
                  lifecycle (create/suspend/resume/delete)
    ┌──────────┐   gRPC   ┌────────────┐
-   │ Go SDK   ├─────────▶│   ateapi   │  Substrate control plane
+   │ SDK      ├─────────▶│   ateapi   │  Substrate control plane
    │  sbcli   │          └────────────┘
    │ sandboxd │   HTTP   ┌────────────┐      ┌──────────────────────┐
    └──────────┘─────────▶│   atenet   ├─────▶│ actor (gVisor)       │
@@ -26,7 +26,7 @@ while this project adds the sandbox-shaped API on top.
                                              └──────────────────────┘
 ```
 
-- **`sandbox/`** — the Go SDK. `Create`, `Open`, `List`, and per-sandbox
+- **`sandbox/`** — the SDK. `Create`, `Open`, `List`, and per-sandbox
   `Suspend`, `Pause`, `Resume`, `Delete`, `Exec`, `ReadFile`, `WriteFile`,
   `ListDir`, `Stat`, `Mkdir`, `Remove`. Lifecycle calls go to the `ateapi`
   gRPC service; exec/fs calls go through the `atenet` router, addressed by
@@ -76,7 +76,7 @@ curl -X POST localhost:8081/v1/sandboxes/dev-1/exec \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
 
-## Go SDK
+## SDK
 
 ```go
 client, err := sandbox.New(sandbox.Options{
