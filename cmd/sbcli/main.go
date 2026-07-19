@@ -2,8 +2,8 @@
 // through the substrate-sandbox REST service using the sandbox SDK;
 // system commands talk to the Kubernetes API.
 //
-// The API endpoint can be set with the --api flag or the SBCLI_API
-// environment variable.
+// The API endpoint can be set with the --api flag or the
+// SUBSTRATE_SANDBOX_API environment variable.
 package main
 
 import (
@@ -56,7 +56,7 @@ func main() {
 			}
 		},
 	}
-	root.PersistentFlags().StringVar(&endpoint, "api", envOr("SBCLI_API", "http://localhost:7777"), "base URL of the substrate-sandbox REST service")
+	root.PersistentFlags().StringVar(&endpoint, "api", envOr("SUBSTRATE_SANDBOX_API", "http://127.0.0.1:7777"), "base URL of the substrate-sandbox REST service")
 	root.PersistentFlags().StringVar(&template, "template", "sandbox", "ActorTemplate name (for create)")
 	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
 
