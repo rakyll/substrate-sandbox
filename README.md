@@ -56,19 +56,19 @@ kubectl port-forward -n ate-system svc/atenet-router 8000:80 &
 # 3. Install and use the CLI (installs to $GOBIN, or $GOPATH/bin).
 go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
 
-sbcli create dev-1 --template substrate-sandbox/sandbox
-sbcli exec dev-1 'echo hello > /workspace/note.txt'
-sbcli suspend dev-1          # snapshot + free the worker
-sbcli exec dev-1 'cat /workspace/note.txt'   # auto-resumes; prints hello
-sbcli rm dev-1
+sbcli create sandbox-dev --template substrate-sandbox/sandbox
+sbcli exec sandbox-dev 'echo hello > /workspace/note.txt'
+sbcli suspend sandbox-dev          # snapshot + free the worker
+sbcli exec sandbox-dev 'cat /workspace/note.txt'   # auto-resumes; prints hello
+sbcli rm sandbox-dev
 ```
 
 Or run the REST service:
 
 ```bash
 go run ./cmd/substrate-sandboxd -template substrate-sandbox/sandbox
-curl -X POST localhost:8081/v1/sandboxes -d '{"id":"dev-1"}'
-curl -X POST localhost:8081/v1/sandboxes/dev-1/exec \
+curl -X POST localhost:8081/v1/sandboxes -d '{"id":"sandbox-dev"}'
+curl -X POST localhost:8081/v1/sandboxes/sandbox-dev/exec \
      -d '{"command":["sh","-c","uname -a"]}'
 ```
 
@@ -83,7 +83,7 @@ client, err := sandbox.New(sandbox.Options{
     AutoResume:  true,                          // wake sandboxes on use
 })
 
-sb, _ := client.Create(ctx, "dev-1")
+sb, _ := client.Create(ctx, "sandbox-dev")
 sb.WriteFile(ctx, "/workspace/main.go", src, 0o644)
 res, _ := sb.Command(ctx, "cd /workspace && go run main.go")
 fmt.Println(res.Stdout, res.ExitCode)
