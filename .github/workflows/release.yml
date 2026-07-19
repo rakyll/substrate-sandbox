@@ -2,7 +2,7 @@ name: release
 
 # Tagging vX.Y.Z publishes the two deployment images (digest-pinned) and a
 # GitHub release with sbcli/substrate-sandbox-api binaries that have those
-# image references baked in, so `sbcli system deploy` works without ko.
+# image references baked in, so `sbcli deploy` works without ko.
 on:
   push:
     tags: ["v*"]

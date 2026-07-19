@@ -43,9 +43,9 @@ or build from source:
 go install github.com/rakyll/substrate-sandbox/cmd/sbcli@latest
 ```
 
-Release binaries embed digest-pinned default images for `sbcli system
-deploy`; source builds don't, so deploying with one requires building the
-images yourself with `ko` (see `sbcli system deploy --help`).
+Release binaries embed digest-pinned default images for `sbcli deploy`;
+source builds don't, so deploying with one requires building the images
+yourself with `ko` (see `sbcli deploy --help`).
 
 ## Quickstart
 
@@ -54,7 +54,7 @@ README) and a snapshots bucket.
 
 ```bash
 # 1. Deploy the system: namespace, worker pool, and sandbox template.
-sbcli system deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
+sbcli deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
 
 # 2. Port-forward the sandbox API.
 kubectl port-forward svc/substrate-sandbox-api 7777:80 &
@@ -77,8 +77,9 @@ curl -X POST localhost:7777/v1/sandboxes/dev1/cmd \
 
 ## CLI
 
-Commands are grouped under `sandbox` (lifecycle and command execution),
-`sandbox fs` (file operations), and `system` (deployment):
+Sandbox commands are grouped under `sandbox` (lifecycle and command
+execution) and `sandbox fs` (file operations); `deploy` sets up the system
+on a cluster:
 
 ```bash
 $ sbcli sandbox
@@ -106,11 +107,11 @@ Available Commands:
   stat        Stat a sandbox path
   write       Write stdin to a sandbox file
 
-$ sbcli system
-Manage the system deployment
-
-Available Commands:
-  deploy      Deploy the system to a cluster running Agent Substrate
+$ sbcli deploy --help
+Deploy creates everything sandboxes need on a Kubernetes cluster that
+already runs the Agent Substrate system: the target namespace, a
+WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
+created from, and the substrate-sandbox-api REST service.
 ```
 
 ## SDK
@@ -148,7 +149,7 @@ program.
 
 ## API
 
-`substrate-sandbox-api` serves the REST API. `sbcli system deploy` runs it
+`substrate-sandbox-api` serves the REST API. `sbcli deploy` runs it
 in-cluster as the `substrate-sandbox-api` service (port 80); it can also be
 run standalone (default `0.0.0.0:7777`). Responses are JSON unless noted.
 

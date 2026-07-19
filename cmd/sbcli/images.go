@@ -1,6 +1,6 @@
 package main
 
-// Default images for `sbcli system deploy`, injected at release time with
+// Default images for `sbcli deploy`, injected at release time with
 //
 //	go build -ldflags "-X main.defaultGuestdImage=... -X main.defaultAteomImage=..."
 //

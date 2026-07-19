@@ -65,7 +65,7 @@ created from, and the substrate-sandbox-api REST service.
 Released sbcli binaries embed digest-pinned default images for the guest
 daemon and the worker, so only --snapshots-bucket is required:
 
-  sbcli system deploy --snapshots-bucket gs://<bucket>/substrate-sandbox/
+  sbcli deploy --snapshots-bucket gs://<bucket>/substrate-sandbox/
 
 Images must be pinned by digest (repo@sha256:...); Substrate rejects
 unpinned images because changing an image invalidates snapshots. To use
@@ -73,7 +73,7 @@ your own images (required when sbcli was built from source), build and
 push them with ko:
 
   export KO_DOCKER_REPO=gcr.io/<your-project>
-  sbcli system deploy \
+  sbcli deploy \
     --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     --snapshots-bucket gs://<bucket>/substrate-sandbox/ \
@@ -128,7 +128,7 @@ func (c *deployConfig) resolveImages() error {
 sbcli is built by a release); pass the images explicitly:
 
   export KO_DOCKER_REPO=<your-registry>
-  sbcli system deploy \
+  sbcli deploy \
     --guestd-image $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-guestd) \
     --api-image    $(ko build github.com/rakyll/substrate-sandbox/cmd/substrate-sandbox-api) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \

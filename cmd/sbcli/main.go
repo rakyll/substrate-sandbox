@@ -69,14 +69,10 @@ func main() {
 		Use:   "fs",
 		Short: "Operate on files and directories in a sandbox",
 	}
-	systemCmd := &cobra.Command{
-		Use:   "system",
-		Short: "Manage the system deployment",
-	}
-	root.AddCommand(sandboxCmd, systemCmd)
+	root.AddCommand(sandboxCmd)
 	sandboxCmd.AddCommand(fsCmd)
 
-	systemCmd.AddCommand(newDeployCommand(&namespace, &template))
+	root.AddCommand(newDeployCommand(&namespace, &template))
 
 	sandboxCmd.AddCommand(&cobra.Command{
 		Use:   "create <id>",
