@@ -25,7 +25,7 @@ import (
 
 // DefaultMaxOutputBytes is the per-stream (stdout/stderr) cap on captured
 // exec output.
-const DefaultMaxOutputBytes = 2 << 20 // 2 MiB
+const DefaultMaxOutputBytes = 10 << 20 // 10 MiB
 
 // DefaultMaxFileBytes caps file writes and reads through the files endpoint.
 const DefaultMaxFileBytes = 64 << 20 // 64 MiB

@@ -196,7 +196,7 @@ Each returns the sandbox's new status: `{"id": "...", "status": "suspended", ...
 }                                           }
 ```
 
-Output is capped at 2 MiB per stream; `stdoutTruncated`/`stderrTruncated`
+Output is capped at 10 MiB per stream; `stdoutTruncated`/`stderrTruncated`
 report when the cap was hit, and `timedOut` reports a timeout kill.
 
 ### Filesystem
