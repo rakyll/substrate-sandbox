@@ -75,7 +75,7 @@ jobs:
             --guest-image $GUEST_IMAGE \\
             --api-image   $API_IMAGE \\
             --ateom-image $ATEOM_IMAGE \\
-            --snapshots-bucket gs://<your-bucket>/substrate-sandbox/ | kubectl apply -f -
+            --snapshots-bucket gs://\$GCS_BUCKET/substrate-sandbox/ | kubectl apply -f -
           \`\`\`
           <!-- release-deploy:end -->
           EOF
