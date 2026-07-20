@@ -16,7 +16,7 @@ library.
 ## Usage
 
 ```python
-from substrate_sandbox import SandboxClient
+from ssbx import SandboxClient
 
 client = SandboxClient("http://localhost:7777")  # ssbx-api
 
@@ -36,7 +36,7 @@ Errors carry the API's machine-readable code; missing sandboxes, files,
 and directories raise `NotFoundError`:
 
 ```python
-from substrate_sandbox import NotFoundError
+from ssbx import NotFoundError
 
 try:
     client.open("absent")

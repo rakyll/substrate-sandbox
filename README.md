@@ -29,7 +29,7 @@ while this project adds the sandbox-shaped API on top.
 resumption, and deletion of sandboxes; as well as file operations and running remote
 commands on the sandboxes.
 - **`sandbox-py`** — The Python client library, see
-  [sandbox-py/README.md](sandbox-py/README.md) for more.
+  [README](sandbox-py/README.md) for more.
 - **`cmd/ssbx`** — Provides a CLI over the API, and utilies to
   make it easier to deploy Substrate Sandbox.
 - **`cmd/ssbx-api`** — The API service that bridges clients to

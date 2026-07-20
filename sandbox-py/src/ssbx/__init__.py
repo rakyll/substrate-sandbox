@@ -4,7 +4,7 @@ It talks to the ssbx-api service, which bridges to the Agent Substrate
 control plane and router; ``ssbx deploy`` generates the manifests that run
 that service in-cluster.
 
-    from substrate_sandbox import SandboxClient
+    from ssbx import SandboxClient
 
     client = SandboxClient("http://localhost:7777", template="sandbox")
     sb = client.create("dev1")

@@ -12,7 +12,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from substrate_sandbox import NotFoundError, SandboxClient, SandboxError, Status
+from ssbx import NotFoundError, SandboxClient, SandboxError, Status
 
 # In-memory state of the fake service.
 _sandboxes = {}

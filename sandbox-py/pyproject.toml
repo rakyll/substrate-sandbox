@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "substrate-sandbox"
+name = "ssbx"
 version = "0.0.1"
 description = "Python SDK for substrate-sandbox: isolated, stateful execution environments on Agent Substrate"
 readme = "README.md"
