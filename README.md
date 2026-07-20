@@ -37,30 +37,35 @@ commands on the sandboxes.
 
 ## Installation
 
-Download `ssbx` from the [releases page](https://github.com/rakyll/substrate-sandbox/releases),
-or build from source:
-
 ```bash
 go install github.com/rakyll/substrate-sandbox/cmd/ssbx@latest
 ```
-
-Release binaries embed digest-pinned default images for `ssbx deploy`;
-source builds don't, so deploying with one requires building the images
-yourself with `ko` (see `ssbx deploy --help`).
 
 ## Quickstart
 
 Prerequisites: a cluster with [Agent Substrate](https://github.com/agent-substrate/substrate)
 installed and a snapshots bucket.
 
-```bash
-# 1. Deploy the system: namespace, worker pool, sandbox template, and API.
-ssbx deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/ | kubectl apply -f -
+First, deploy the system — namespace, worker pool, sandbox template, and
+API — using the digest-pinned images published by the latest release:
 
-# 2. Port-forward the sandbox API.
+<!-- release-deploy:begin (rewritten by the release workflow; do not edit) -->
+```bash
+ssbx deploy \
+  --guest-image ghcr.io/rakyll/substrate-sandbox/ssbx-guest@sha256:<see-latest-release> \
+  --api-image   ghcr.io/rakyll/substrate-sandbox/ssbx-api@sha256:<see-latest-release> \
+  --ateom-image ghcr.io/rakyll/substrate-sandbox/ateom-gvisor@sha256:<see-latest-release> \
+  --snapshots-bucket gs://<your-bucket>/substrate-sandbox/ | kubectl apply -f -
+```
+<!-- release-deploy:end -->
+
+Then create and use a sandbox:
+
+```bash
+# Port-forward the sandbox API.
 kubectl port-forward svc/ssbx-api 7777:7777 &
 
-# 3. Create and use a sandbox.
+# Create and use a sandbox.
 ssbx create dev1
 ssbx cmd dev1 'echo hello > /workspace/note.txt'
 ssbx suspend dev1

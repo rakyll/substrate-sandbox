@@ -48,19 +48,23 @@ namespace, a WorkerPool of pre-warmed workers, the ActorTemplate that
 sandboxes are created from, and the ssbx-api service. It prints YAML to
 stdout without touching the cluster; apply it with kubectl.
 
-Released ssbx binaries embed digest-pinned default images for the guest
-daemon and the worker, so only --snapshots-bucket is required:
+Each release publishes digest-pinned images and records them in the
+README quickstart, so the full command can be copied from there:
 
-  ssbx deploy --snapshots-bucket gs://<bucket>/substrate-sandbox/ | kubectl apply -f -
+  ssbx deploy \
+    --guest-image ghcr.io/rakyll/substrate-sandbox/ssbx-guest@sha256:... \
+    --api-image   ghcr.io/rakyll/substrate-sandbox/ssbx-api@sha256:... \
+    --ateom-image ghcr.io/rakyll/substrate-sandbox/ateom-gvisor@sha256:... \
+    --snapshots-bucket gs://<bucket>/substrate-sandbox/ | kubectl apply -f -
 
 Images must be pinned by digest (repo@sha256:...); Substrate rejects
 unpinned images because changing an image invalidates snapshots. To use
-your own images (required when ssbx was built from source), build and
-push them with ko:
+your own images, build and push them with ko:
 
   export KO_DOCKER_REPO=gcr.io/<your-project>
   ssbx deploy \
     --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/ssbx-guest) \
+    --api-image   $(ko build github.com/rakyll/substrate-sandbox/cmd/ssbx-api) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     --snapshots-bucket gs://<bucket>/substrate-sandbox/ \
     --template sandbox --namespace substrate-sandbox | kubectl apply -f -`,
@@ -83,11 +87,11 @@ push them with ko:
 		},
 	}
 
-	cmd.Flags().StringVar(&cfg.guestImage, "guest-image", defaultGuestImage, "digest-pinned ssbx-guest image (repo@sha256:...)")
-	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", defaultAteomImage, "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
+	cmd.Flags().StringVar(&cfg.guestImage, "guest-image", "", "digest-pinned ssbx-guest image (repo@sha256:...)")
+	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", "", "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
 	cmd.Flags().StringVar(&cfg.snapshotsBucket, "snapshots-bucket", "", "object-storage bucket (with optional prefix) for suspend snapshots, e.g. gs://bucket/prefix/")
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
-	cmd.Flags().StringVar(&cfg.apiImage, "api-image", defaultAPIImage, "ssbx-api image for the API service")
+	cmd.Flags().StringVar(&cfg.apiImage, "api-image", "", "digest-pinned ssbx-api image for the API service")
 	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of API service replicas")
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
 	cmd.Flags().Int32Var(&cfg.replicas, "replicas", 2, "number of pre-warmed worker pods")
@@ -103,8 +107,9 @@ func (c *deployConfig) resolveImages() error {
 	if c.guestImage != "" && c.ateomImage != "" && c.apiImage != "" {
 		return nil
 	}
-	return errors.New(`no default images are baked into this build of ssbx (they are set when
-ssbx is built by a release); pass the images explicitly:
+	return errors.New(`--guest-image, --api-image, and --ateom-image are required; use the
+digest-pinned images published by the latest release (the README
+quickstart records them), or build and push your own with ko:
 
   export KO_DOCKER_REPO=<your-registry>
   ssbx deploy \

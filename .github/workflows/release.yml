@@ -1,8 +1,10 @@
 name: release
 
-# Tagging vX.Y.Z publishes the two deployment images (digest-pinned) and a
-# GitHub release with ssbx/ssbx-api binaries that have those
-# image references baked in, so `ssbx deploy` works without ko.
+# Tagging vX.Y.Z publishes the three deployment images (digest-pinned),
+# rewrites the README quickstart's deploy command with the new image
+# references, and creates a GitHub release whose notes list the images.
+# No binaries are built; users install ssbx with `go install` and copy the
+# pinned deploy command from the README.
 on:
   push:
     tags: ["v*"]
@@ -51,40 +53,65 @@ jobs:
           image=$(KO_DOCKER_REPO=ghcr.io/${GITHUB_REPOSITORY@L}/ateom-gvisor ko build --bare ./cmd/ateom-gvisor)
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
-      - name: Build binaries
+      # Rewrite the deploy command between the release-deploy markers in the
+      # README with the images published above, and push to the default
+      # branch.
+      - name: Update README with released images
         env:
           GUEST_IMAGE: ${{ steps.guest.outputs.image }}
-          ATEOM_IMAGE: ${{ steps.ateom.outputs.image }}
           API_IMAGE: ${{ steps.api.outputs.image }}
+          ATEOM_IMAGE: ${{ steps.ateom.outputs.image }}
         run: |
-          mkdir -p dist
-          for os in linux darwin; do
-            for arch in amd64 arm64; do
-              GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath \
-                -ldflags "-s -w -X main.defaultGuestImage=$GUEST_IMAGE -X main.defaultAteomImage=$ATEOM_IMAGE -X main.defaultAPIImage=$API_IMAGE" \
-                -o "dist/ssbx-$os-$arch" ./cmd/ssbx
-              GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" \
-                -o "dist/ssbx-api-$os-$arch" ./cmd/ssbx-api
-            done
-          done
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
 
-      # Create the release, or add the assets to it if it already exists
-      # (e.g. when the release was created in the GitHub UI, whose tag push
-      # is what triggered this workflow).
+          cat > "$RUNNER_TEMP/deploy-block" <<EOF
+          <!-- release-deploy:begin (rewritten by the release workflow; do not edit) -->
+          \`\`\`bash
+          # Images are pinned by release $GITHUB_REF_NAME.
+          ssbx deploy \\
+            --guest-image $GUEST_IMAGE \\
+            --api-image   $API_IMAGE \\
+            --ateom-image $ATEOM_IMAGE \\
+            --snapshots-bucket gs://<your-bucket>/substrate-sandbox/ | kubectl apply -f -
+          \`\`\`
+          <!-- release-deploy:end -->
+          EOF
+
+          awk -v blockfile="$RUNNER_TEMP/deploy-block" '
+            /<!-- release-deploy:begin/ {
+              skip = 1
+              while ((getline line < blockfile) > 0) print line
+              next
+            }
+            /<!-- release-deploy:end -->/ { skip = 0; next }
+            !skip
+          ' README.md > README.md.new
+          mv README.md.new README.md
+
+          git commit -am "docs: pin $GITHUB_REF_NAME release images in README"
+          git push origin main
+
+      # Create the release, or update its notes if it already exists (e.g.
+      # when the release was created in the GitHub UI, whose tag push is
+      # what triggered this workflow).
       - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          notes="Default deploy images baked into ssbx:
+          notes="Images published by this release:
           - \`${{ steps.guest.outputs.image }}\`
+          - \`${{ steps.api.outputs.image }}\`
           - \`${{ steps.ateom.outputs.image }}\`
-          - \`${{ steps.api.outputs.image }}\`"
+
+          Deploy with \`ssbx deploy\`; the README quickstart carries the full pinned command."
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber --repo "$GITHUB_REPOSITORY"
             existing=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body -q .body)
             printf '%s\n\n%s\n' "$existing" "$notes" | gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file -
           else
-            gh release create "$GITHUB_REF_NAME" dist/* \
+            gh release create "$GITHUB_REF_NAME" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$GITHUB_REF_NAME" \
               --generate-notes \
