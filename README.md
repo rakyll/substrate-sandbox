@@ -25,9 +25,10 @@ while this project adds the sandbox-shaped API on top.
                                                                ╰──────────────────────╯
 ```
 
-- **`sandbox`** — The Go SDK that allows creation, suspension,
+- **`sandbox`** — The client library that allows creation, suspension,
 resumption, and deletion of sandboxes; as well as file operations and running remote
-commands on the sandboxes.
+commands on the sandboxes. It's currently available in Go, more languages are coming
+soon.
 - **`cmd/ssbx`** — Provides a CLI over the API, and utilies to
   make it easier to deploy Substrate Sandbox.
 - **`cmd/ssbx-api`** — The API service that bridges clients to
