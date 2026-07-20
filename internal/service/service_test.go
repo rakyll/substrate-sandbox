@@ -10,11 +10,10 @@ import (
 	"testing"
 
 	"github.com/agent-substrate/substrate/pkg/proto/ateapipb"
-	"github.com/rakyll/substrate-sandbox/internal/api"
 	"github.com/rakyll/substrate-sandbox/internal/direct"
+	"github.com/rakyll/substrate-sandbox/internal/guest"
 	"github.com/rakyll/substrate-sandbox/internal/internaltest/fakecontrol"
 	"github.com/rakyll/substrate-sandbox/internal/internaltest/fakerouter"
-	"github.com/rakyll/substrate-sandbox/internal/guest"
 	"github.com/rakyll/substrate-sandbox/internal/service"
 )
 
@@ -83,7 +82,7 @@ func TestLifecycleAndExec(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create status = %d, want 201", resp.StatusCode)
 	}
-	created := decode[api.SandboxInfo](t, resp)
+	created := decode[service.SandboxInfo](t, resp)
 	if created.ID != "web-1" || created.Status != "running" {
 		t.Fatalf("created = %+v, want web-1 running", created)
 	}
@@ -107,27 +106,27 @@ func TestLifecycleAndExec(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("cmd status = %d, want 200", resp.StatusCode)
 	}
-	res := decode[api.CmdResult](t, resp)
+	res := decode[guest.CmdResult](t, resp)
 	if res.Stdout != "file body" || res.ExitCode != 0 {
 		t.Fatalf("cmd result = %+v, want stdout %q", res, "file body")
 	}
 
 	// Suspend, then exec again: auto-resume kicks in.
 	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/suspend", "")
-	if got := decode[api.SandboxInfo](t, resp); got.Status != "suspended" {
+	if got := decode[service.SandboxInfo](t, resp); got.Status != "suspended" {
 		t.Fatalf("after suspend = %+v, want suspended", got)
 	}
 	resp = do(t, "POST", srv.URL+"/v1/sandboxes/web-1/cmd", `{"command":["sh","-c","echo back"]}`)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("cmd after suspend status = %d, want 200", resp.StatusCode)
 	}
-	if res := decode[api.CmdResult](t, resp); res.Stdout != "back\n" {
+	if res := decode[guest.CmdResult](t, resp); res.Stdout != "back\n" {
 		t.Fatalf("cmd after suspend = %+v, want stdout %q", res, "back\n")
 	}
 
 	// List directory.
 	resp = do(t, "GET", srv.URL+"/v1/sandboxes/web-1/dir?path=app", "")
-	listing := decode[api.ListDirResponse](t, resp)
+	listing := decode[guest.ListDirResponse](t, resp)
 	if len(listing.Entries) != 1 || listing.Entries[0].Name != "main.txt" {
 		t.Fatalf("listing = %+v, want [main.txt]", listing.Entries)
 	}
@@ -137,8 +136,8 @@ func TestLifecycleAndExec(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("delete file via dir status = %d, want 400", resp.StatusCode)
 	}
-	if got := decode[api.Error](t, resp).Code; got != api.CodeNotDirectory {
-		t.Fatalf("delete file via dir code = %q, want %q", got, api.CodeNotDirectory)
+	if got := decode[guest.Error](t, resp).Code; got != guest.CodeNotDirectory {
+		t.Fatalf("delete file via dir code = %q, want %q", got, guest.CodeNotDirectory)
 	}
 
 	// Deleting a directory through the file endpoint is refused.
@@ -146,8 +145,8 @@ func TestLifecycleAndExec(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("delete dir via file status = %d, want 400", resp.StatusCode)
 	}
-	if got := decode[api.Error](t, resp).Code; got != api.CodeNotFile {
-		t.Fatalf("delete dir via file code = %q, want %q", got, api.CodeNotFile)
+	if got := decode[guest.Error](t, resp).Code; got != guest.CodeNotFile {
+		t.Fatalf("delete dir via file code = %q, want %q", got, guest.CodeNotFile)
 	}
 
 	// A file deletes cleanly through the file endpoint.
@@ -183,7 +182,7 @@ func TestCreateStartsSandbox(t *testing.T) {
 
 	// Create starts the sandbox.
 	resp := do(t, "POST", srv.URL+"/v1/sandboxes", `{"id":"started","template":"default","namespace":"sandboxes"}`)
-	if got := decode[api.SandboxInfo](t, resp); got.Status != "running" {
+	if got := decode[service.SandboxInfo](t, resp); got.Status != "running" {
 		t.Errorf("create = %+v, want running", got)
 	}
 }
@@ -200,7 +199,7 @@ func TestValidation(t *testing.T) {
 	if resp.StatusCode != http.StatusCreated {
 		t.Errorf("create with defaults status = %d, want 201", resp.StatusCode)
 	}
-	got := decode[api.SandboxInfo](t, resp)
+	got := decode[service.SandboxInfo](t, resp)
 	if got.Template != service.DefaultTemplate || got.Namespace != service.DefaultNamespace {
 		t.Errorf("template with defaults = %q in %q, want %q in %q",
 			got.Template, got.Namespace, service.DefaultTemplate, service.DefaultNamespace)
@@ -209,8 +208,8 @@ func TestValidation(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("get absent status = %d, want 404", resp.StatusCode)
 	}
-	apiErr := decode[api.Error](t, resp)
-	if apiErr.Code != api.CodeNotFound {
-		t.Errorf("error code = %q, want %q", apiErr.Code, api.CodeNotFound)
+	apiErr := decode[guest.Error](t, resp)
+	if apiErr.Code != guest.CodeNotFound {
+		t.Errorf("error code = %q, want %q", apiErr.Code, guest.CodeNotFound)
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rakyll/substrate-sandbox/internal/api"
 )
 
 func newTestServer(t *testing.T) (*httptest.Server, string) {
@@ -24,7 +23,7 @@ func newTestServer(t *testing.T) (*httptest.Server, string) {
 	return srv, dir
 }
 
-func doExec(t *testing.T, srv *httptest.Server, req api.CmdRequest) api.CmdResult {
+func doExec(t *testing.T, srv *httptest.Server, req CmdRequest) CmdResult {
 	t.Helper()
 	body, _ := json.Marshal(req)
 	resp, err := http.Post(srv.URL+"/v1/cmd", "application/json", bytes.NewReader(body))
@@ -36,7 +35,7 @@ func doExec(t *testing.T, srv *httptest.Server, req api.CmdRequest) api.CmdResul
 		payload, _ := io.ReadAll(resp.Body)
 		t.Fatalf("exec returned %d: %s", resp.StatusCode, payload)
 	}
-	var res api.CmdResult
+	var res CmdResult
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		t.Fatalf("decoding exec result: %v", err)
 	}
@@ -46,7 +45,7 @@ func doExec(t *testing.T, srv *httptest.Server, req api.CmdRequest) api.CmdResul
 func TestExecCapturesOutputAndExitCode(t *testing.T) {
 	srv, _ := newTestServer(t)
 
-	res := doExec(t, srv, api.CmdRequest{Command: []string{"sh", "-c", "echo out; echo err >&2; exit 3"}})
+	res := doExec(t, srv, CmdRequest{Command: []string{"sh", "-c", "echo out; echo err >&2; exit 3"}})
 	if res.Stdout != "out\n" {
 		t.Errorf("stdout = %q, want %q", res.Stdout, "out\n")
 	}
@@ -63,7 +62,7 @@ func TestExecEnvCwdStdin(t *testing.T) {
 	sub := filepath.Join(dir, "sub")
 	os.Mkdir(sub, 0o755)
 
-	res := doExec(t, srv, api.CmdRequest{
+	res := doExec(t, srv, CmdRequest{
 		Command: []string{"sh", "-c", "pwd; printf '%s\n' \"$GREETING\"; cat"},
 		Env:     map[string]string{"GREETING": "hello"},
 		Cwd:     "sub",
@@ -83,7 +82,7 @@ func TestExecTimeout(t *testing.T) {
 	srv, _ := newTestServer(t)
 
 	start := time.Now()
-	res := doExec(t, srv, api.CmdRequest{
+	res := doExec(t, srv, CmdRequest{
 		Command: []string{"sh", "-c", "sleep 10"},
 		Timeout: "200ms",
 	})
@@ -103,7 +102,7 @@ func TestExecOutputTruncation(t *testing.T) {
 	srv := httptest.NewServer((&Server{Workdir: dir, MaxOutputBytes: 10}).Handler())
 	defer srv.Close()
 
-	res := doExec(t, srv, api.CmdRequest{Command: []string{"sh", "-c", "printf '0123456789ABCDEF'"}})
+	res := doExec(t, srv, CmdRequest{Command: []string{"sh", "-c", "printf '0123456789ABCDEF'"}})
 	if res.Stdout != "0123456789" {
 		t.Errorf("stdout = %q, want first 10 bytes", res.Stdout)
 	}
@@ -114,7 +113,7 @@ func TestExecOutputTruncation(t *testing.T) {
 
 func TestExecCommandNotFound(t *testing.T) {
 	srv, _ := newTestServer(t)
-	body, _ := json.Marshal(api.CmdRequest{Command: []string{"definitely-not-a-command-xyz"}})
+	body, _ := json.Marshal(CmdRequest{Command: []string{"definitely-not-a-command-xyz"}})
 	resp, err := http.Post(srv.URL+"/v1/cmd", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -173,12 +172,12 @@ func TestReadMissingFileIs404(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", resp.StatusCode)
 	}
-	var apiErr api.Error
+	var apiErr Error
 	if err := json.NewDecoder(resp.Body).Decode(&apiErr); err != nil {
 		t.Fatalf("decoding error envelope: %v", err)
 	}
-	if apiErr.Code != api.CodeNotFound {
-		t.Errorf("code = %q, want %q", apiErr.Code, api.CodeNotFound)
+	if apiErr.Code != CodeNotFound {
+		t.Errorf("code = %q, want %q", apiErr.Code, CodeNotFound)
 	}
 }
 
@@ -204,14 +203,14 @@ func TestListDirAndStat(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	var listing api.ListDirResponse
+	var listing ListDirResponse
 	if err := json.NewDecoder(resp.Body).Decode(&listing); err != nil {
 		t.Fatal(err)
 	}
 	if len(listing.Entries) != 2 {
 		t.Fatalf("got %d entries, want 2: %+v", len(listing.Entries), listing.Entries)
 	}
-	byName := map[string]api.DirEntry{}
+	byName := map[string]DirEntry{}
 	for _, e := range listing.Entries {
 		byName[e.Name] = e
 	}
@@ -227,7 +226,7 @@ func TestListDirAndStat(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	var e api.DirEntry
+	var e DirEntry
 	if err := json.NewDecoder(resp.Body).Decode(&e); err != nil {
 		t.Fatal(err)
 	}

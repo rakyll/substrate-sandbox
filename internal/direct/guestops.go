@@ -12,17 +12,17 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/rakyll/substrate-sandbox/internal/api"
+	"github.com/rakyll/substrate-sandbox/internal/guest"
 )
 
 // CmdRequest describes a command to run inside a sandbox.
-type CmdRequest = api.CmdRequest
+type CmdRequest = guest.CmdRequest
 
 // CmdResult is the outcome of a CmdRequest.
-type CmdResult = api.CmdResult
+type CmdResult = guest.CmdResult
 
 // DirEntry describes a file or directory inside a sandbox.
-type DirEntry = api.DirEntry
+type DirEntry = guest.DirEntry
 
 // Run runs a command inside the sandbox and returns its captured output
 // and exit code. The command is executed directly (not through a shell);
@@ -92,7 +92,7 @@ func (s *Sandbox) ListDir(ctx context.Context, path string) ([]DirEntry, error) 
 		return nil, err
 	}
 	defer resp.Body.Close()
-	var out api.ListDirResponse
+	var out guest.ListDirResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, fmt.Errorf("sandbox: decoding directory listing: %w", err)
 	}
@@ -193,9 +193,9 @@ func (s *Sandbox) guestDoOnce(ctx context.Context, method, path string, query ur
 	defer resp.Body.Close()
 
 	payload, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
-	var apiErr api.Error
+	var apiErr guest.Error
 	if jsonErr := json.Unmarshal(payload, &apiErr); jsonErr == nil && apiErr.Message != "" {
-		if apiErr.Code == api.CodeNotFound {
+		if apiErr.Code == guest.CodeNotFound {
 			return nil, fmt.Errorf("sandbox: %q: %w: %s", s.id, ErrNotFound, apiErr.Message)
 		}
 		return nil, fmt.Errorf("sandbox: %q: %s", s.id, apiErr.Message)

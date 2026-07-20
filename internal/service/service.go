@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/rakyll/substrate-sandbox/internal/api"
 	"github.com/rakyll/substrate-sandbox/internal/direct"
+	"github.com/rakyll/substrate-sandbox/internal/guest"
 )
 
 // DefaultTemplate is the ActorTemplate name used when a create request
@@ -26,8 +26,8 @@ const DefaultTemplate = "sandbox"
 // default namespace of `ssbx deploy`.
 const DefaultNamespace = "substrate-sandbox"
 
-func toSandboxInfo(info direct.Info) api.SandboxInfo {
-	return api.SandboxInfo{
+func toSandboxInfo(info direct.Info) SandboxInfo {
+	return SandboxInfo{
 		ID:                 info.ID,
 		Status:             string(info.Status),
 		Template:           info.Template,
@@ -74,23 +74,23 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeErr(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
-	code := api.CodeInternal
+	code := guest.CodeInternal
 	if errors.Is(err, direct.ErrNotFound) {
 		status = http.StatusNotFound
-		code = api.CodeNotFound
+		code = guest.CodeNotFound
 	}
-	writeJSON(w, status, api.Error{Code: code, Message: err.Error()})
+	writeJSON(w, status, guest.Error{Code: code, Message: err.Error()})
 }
 
 func writeBadRequest(w http.ResponseWriter, format string, args ...any) {
-	writeJSON(w, http.StatusBadRequest, api.Error{
-		Code:    api.CodeInvalidArgument,
+	writeJSON(w, http.StatusBadRequest, guest.Error{
+		Code:    guest.CodeInvalidArgument,
 		Message: fmt.Sprintf(format, args...),
 	})
 }
 
 func (s *server) create(w http.ResponseWriter, r *http.Request) {
-	var req api.CreateSandboxRequest
+	var req CreateSandboxRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid request body: %v", err)
 		return
@@ -159,7 +159,7 @@ func (s *server) lifecycle(op func(*direct.Sandbox, context.Context) error) http
 }
 
 func (s *server) cmd(w http.ResponseWriter, r *http.Request) {
-	var req api.CmdRequest
+	var req guest.CmdRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid request body: %v", err)
 		return
@@ -185,8 +185,8 @@ func queryPath(w http.ResponseWriter, r *http.Request) (string, bool) {
 
 // decodeFS decodes and validates the shared filesystem request body. It
 // writes an error response and reports false when the request is invalid.
-func decodeFS(w http.ResponseWriter, r *http.Request) (api.FSRequest, bool) {
-	var req api.FSRequest
+func decodeFS(w http.ResponseWriter, r *http.Request) (FSRequest, bool) {
+	var req FSRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid request body: %v", err)
 		return req, false
@@ -199,7 +199,7 @@ func decodeFS(w http.ResponseWriter, r *http.Request) (api.FSRequest, bool) {
 }
 
 // fsMode parses the request's octal mode, falling back to def when unset.
-func fsMode(w http.ResponseWriter, req api.FSRequest, def fs.FileMode) (fs.FileMode, bool) {
+func fsMode(w http.ResponseWriter, req FSRequest, def fs.FileMode) (fs.FileMode, bool) {
 	if req.Mode == "" {
 		return def, true
 	}
@@ -254,8 +254,8 @@ func (s *server) removePath(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if entry.IsDir {
-		writeJSON(w, http.StatusBadRequest, api.Error{
-			Code:    api.CodeNotFile,
+		writeJSON(w, http.StatusBadRequest, guest.Error{
+			Code:    guest.CodeNotFile,
 			Message: fmt.Sprintf("%s is a directory; use the directory endpoint", path),
 		})
 		return
@@ -277,7 +277,7 @@ func (s *server) listDir(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, api.ListDirResponse{Entries: entries})
+	writeJSON(w, http.StatusOK, guest.ListDirResponse{Entries: entries})
 }
 
 func (s *server) mkdir(w http.ResponseWriter, r *http.Request) {
@@ -308,8 +308,8 @@ func (s *server) removeDir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !entry.IsDir {
-		writeJSON(w, http.StatusBadRequest, api.Error{
-			Code:    api.CodeNotDirectory,
+		writeJSON(w, http.StatusBadRequest, guest.Error{
+			Code:    guest.CodeNotDirectory,
 			Message: fmt.Sprintf("%s is not a directory", path),
 		})
 		return

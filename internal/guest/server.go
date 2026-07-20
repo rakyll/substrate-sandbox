@@ -20,7 +20,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rakyll/substrate-sandbox/internal/api"
 )
 
 // DefaultMaxOutputBytes is the per-stream (stdout/stderr) cap on captured
@@ -92,19 +91,19 @@ func (s *Server) resolvePath(p string) (string, error) {
 func writeError(w http.ResponseWriter, status int, code, format string, args ...any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(api.Error{Code: code, Message: fmt.Sprintf(format, args...)})
+	json.NewEncoder(w).Encode(Error{Code: code, Message: fmt.Sprintf(format, args...)})
 }
 
 func writeFSError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		writeError(w, http.StatusNotFound, api.CodeNotFound, "%v", err)
+		writeError(w, http.StatusNotFound, CodeNotFound, "%v", err)
 	case errors.Is(err, syscall.EISDIR):
-		writeError(w, http.StatusBadRequest, api.CodeNotFile, "%v", err)
+		writeError(w, http.StatusBadRequest, CodeNotFile, "%v", err)
 	case errors.Is(err, syscall.ENOTDIR):
-		writeError(w, http.StatusBadRequest, api.CodeNotDirectory, "%v", err)
+		writeError(w, http.StatusBadRequest, CodeNotDirectory, "%v", err)
 	default:
-		writeError(w, http.StatusInternalServerError, api.CodeInternal, "%v", err)
+		writeError(w, http.StatusInternalServerError, CodeInternal, "%v", err)
 	}
 }
 
@@ -135,13 +134,13 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 }
 
 func (s *Server) handleCmd(w http.ResponseWriter, r *http.Request) {
-	var req api.CmdRequest
+	var req CmdRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "invalid request body: %v", err)
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "invalid request body: %v", err)
 		return
 	}
 	if len(req.Command) == 0 {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "command is required")
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "command is required")
 		return
 	}
 
@@ -149,7 +148,7 @@ func (s *Server) handleCmd(w http.ResponseWriter, r *http.Request) {
 	if req.Timeout != "" {
 		d, err := time.ParseDuration(req.Timeout)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "invalid timeout: %v", err)
+			writeError(w, http.StatusBadRequest, CodeInvalidArgument, "invalid timeout: %v", err)
 			return
 		}
 		if d > 0 {
@@ -163,7 +162,7 @@ func (s *Server) handleCmd(w http.ResponseWriter, r *http.Request) {
 	if req.Cwd != "" {
 		cwd, err := s.resolvePath(req.Cwd)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "invalid cwd: %v", err)
+			writeError(w, http.StatusBadRequest, CodeInvalidArgument, "invalid cwd: %v", err)
 			return
 		}
 		cmd.Dir = cwd
@@ -198,7 +197,7 @@ func (s *Server) handleCmd(w http.ResponseWriter, r *http.Request) {
 	err := cmd.Run()
 	elapsed := time.Since(start)
 
-	res := api.CmdResult{
+	res := CmdResult{
 		Stdout:          stdout.buf.String(),
 		Stderr:          stderr.buf.String(),
 		StdoutTruncated: stdout.truncated,
@@ -213,7 +212,7 @@ func (s *Server) handleCmd(w http.ResponseWriter, r *http.Request) {
 		res.ExitCode = cmd.ProcessState.ExitCode()
 	default:
 		// The process failed to start (e.g. command not found).
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "failed to start command: %v", err)
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "failed to start command: %v", err)
 		return
 	}
 	writeJSON(w, res)
@@ -222,7 +221,7 @@ func (s *Server) handleCmd(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request) {
 	path, err := s.resolvePath(r.URL.Query().Get("path"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "%v", err)
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "%v", err)
 		return
 	}
 	f, err := os.Open(path)
@@ -237,11 +236,11 @@ func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if fi.IsDir() {
-		writeError(w, http.StatusBadRequest, api.CodeNotFile, "%s is a directory", path)
+		writeError(w, http.StatusBadRequest, CodeNotFile, "%s is a directory", path)
 		return
 	}
 	if fi.Size() > s.maxFile() {
-		writeError(w, http.StatusRequestEntityTooLarge, api.CodeInvalidArgument,
+		writeError(w, http.StatusRequestEntityTooLarge, CodeInvalidArgument,
 			"file is %d bytes, exceeds the %d byte limit", fi.Size(), s.maxFile())
 		return
 	}
@@ -255,14 +254,14 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	path, err := s.resolvePath(q.Get("path"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "%v", err)
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "%v", err)
 		return
 	}
 	mode := fs.FileMode(0o644)
 	if m := q.Get("mode"); m != "" {
 		v, err := strconv.ParseUint(m, 8, 32)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "invalid mode %q: %v", m, err)
+			writeError(w, http.StatusBadRequest, CodeInvalidArgument, "invalid mode %q: %v", m, err)
 			return
 		}
 		mode = fs.FileMode(v).Perm()
@@ -270,11 +269,11 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 
 	data, err := io.ReadAll(io.LimitReader(r.Body, s.maxFile()+1))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, api.CodeInternal, "reading request body: %v", err)
+		writeError(w, http.StatusInternalServerError, CodeInternal, "reading request body: %v", err)
 		return
 	}
 	if int64(len(data)) > s.maxFile() {
-		writeError(w, http.StatusRequestEntityTooLarge, api.CodeInvalidArgument,
+		writeError(w, http.StatusRequestEntityTooLarge, CodeInvalidArgument,
 			"file content exceeds the %d byte limit", s.maxFile())
 		return
 	}
@@ -301,11 +300,11 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	path, err := s.resolvePath(r.URL.Query().Get("path"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "%v", err)
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "%v", err)
 		return
 	}
 	if path == "/" {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "refusing to delete /")
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "refusing to delete /")
 		return
 	}
 	if _, err := os.Lstat(path); err != nil {
@@ -322,7 +321,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListDir(w http.ResponseWriter, r *http.Request) {
 	path, err := s.resolvePath(r.URL.Query().Get("path"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "%v", err)
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "%v", err)
 		return
 	}
 	entries, err := os.ReadDir(path)
@@ -330,7 +329,7 @@ func (s *Server) handleListDir(w http.ResponseWriter, r *http.Request) {
 		writeFSError(w, err)
 		return
 	}
-	resp := api.ListDirResponse{Entries: make([]api.DirEntry, 0, len(entries))}
+	resp := ListDirResponse{Entries: make([]DirEntry, 0, len(entries))}
 	for _, e := range entries {
 		fi, err := e.Info()
 		if err != nil {
@@ -346,14 +345,14 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	path, err := s.resolvePath(q.Get("path"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "%v", err)
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "%v", err)
 		return
 	}
 	mode := fs.FileMode(0o755)
 	if m := q.Get("mode"); m != "" {
 		v, err := strconv.ParseUint(m, 8, 32)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "invalid mode %q: %v", m, err)
+			writeError(w, http.StatusBadRequest, CodeInvalidArgument, "invalid mode %q: %v", m, err)
 			return
 		}
 		mode = fs.FileMode(v).Perm()
@@ -368,7 +367,7 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStat(w http.ResponseWriter, r *http.Request) {
 	path, err := s.resolvePath(r.URL.Query().Get("path"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, api.CodeInvalidArgument, "%v", err)
+		writeError(w, http.StatusBadRequest, CodeInvalidArgument, "%v", err)
 		return
 	}
 	fi, err := os.Stat(path)
@@ -379,8 +378,8 @@ func (s *Server) handleStat(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, dirEntry(path, fi))
 }
 
-func dirEntry(path string, fi fs.FileInfo) api.DirEntry {
-	return api.DirEntry{
+func dirEntry(path string, fi fs.FileInfo) DirEntry {
+	return DirEntry{
 		Name:       fi.Name(),
 		Path:       path,
 		Size:       fi.Size(),

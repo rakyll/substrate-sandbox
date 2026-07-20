@@ -15,7 +15,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/rakyll/substrate-sandbox/internal/api"
+	"github.com/rakyll/substrate-sandbox/internal/guest"
+	"github.com/rakyll/substrate-sandbox/internal/service"
 )
 
 // ErrNotFound is returned when a sandbox, file, or directory does not exist.
@@ -115,7 +116,7 @@ func (c *Client) Create(ctx context.Context, id string, opts ...CreateOption) (*
 	if namespace == "" {
 		namespace = c.opts.Namespace
 	}
-	req := api.CreateSandboxRequest{
+	req := service.CreateSandboxRequest{
 		ID:             id,
 		Template:       template,
 		Namespace:      namespace,
@@ -166,9 +167,9 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	defer resp.Body.Close()
 
 	payload, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
-	var apiErr api.Error
+	var apiErr guest.Error
 	if jsonErr := json.Unmarshal(payload, &apiErr); jsonErr == nil && apiErr.Message != "" {
-		if apiErr.Code == api.CodeNotFound {
+		if apiErr.Code == guest.CodeNotFound {
 			return nil, fmt.Errorf("sandbox: %w: %s", ErrNotFound, apiErr.Message)
 		}
 		return nil, fmt.Errorf("sandbox: %s", apiErr.Message)

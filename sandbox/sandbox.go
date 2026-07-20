@@ -10,7 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/rakyll/substrate-sandbox/internal/api"
+	"github.com/rakyll/substrate-sandbox/internal/guest"
+	"github.com/rakyll/substrate-sandbox/internal/service"
 )
 
 // Status is the lifecycle state of a sandbox.
@@ -43,7 +44,7 @@ type Info struct {
 	WorkerPodIP        string
 }
 
-func infoFromAPI(s api.SandboxInfo) Info {
+func infoFromAPI(s service.SandboxInfo) Info {
 	return Info{
 		ID:                 s.ID,
 		Status:             Status(s.Status),
@@ -56,13 +57,13 @@ func infoFromAPI(s api.SandboxInfo) Info {
 }
 
 // CmdRequest describes a command to run inside a sandbox.
-type CmdRequest = api.CmdRequest
+type CmdRequest = guest.CmdRequest
 
 // CmdResult is the outcome of a CmdRequest.
-type CmdResult = api.CmdResult
+type CmdResult = guest.CmdResult
 
 // DirEntry describes a file or directory inside a sandbox.
-type DirEntry = api.DirEntry
+type DirEntry = guest.DirEntry
 
 // Sandbox is a handle to a single sandbox.
 type Sandbox struct {
@@ -80,7 +81,7 @@ func (s *Sandbox) path(suffix string) string {
 
 // Info fetches the sandbox's current state.
 func (s *Sandbox) Info(ctx context.Context) (Info, error) {
-	var out api.SandboxInfo
+	var out service.SandboxInfo
 	if err := s.client.doJSON(ctx, http.MethodGet, s.path(""), nil, nil, &out); err != nil {
 		return Info{}, err
 	}
@@ -147,7 +148,7 @@ func (s *Sandbox) WriteFile(ctx context.Context, path string, r io.Reader, mode 
 	if err != nil {
 		return fmt.Errorf("sandbox: reading data for %q: %w", path, err)
 	}
-	req := api.FSRequest{
+	req := service.FSRequest{
 		Path:    path,
 		Mode:    strconv.FormatUint(uint64(mode.Perm()), 8),
 		Content: data,
@@ -157,7 +158,7 @@ func (s *Sandbox) WriteFile(ctx context.Context, path string, r io.Reader, mode 
 
 // ListDir lists the entries of the directory at path inside the sandbox.
 func (s *Sandbox) ListDir(ctx context.Context, path string) ([]DirEntry, error) {
-	var out api.ListDirResponse
+	var out guest.ListDirResponse
 	if err := s.client.doJSON(ctx, http.MethodGet, s.path("/dir"), url.Values{"path": {path}}, nil, &out); err != nil {
 		return nil, err
 	}
@@ -175,7 +176,7 @@ func (s *Sandbox) Stat(ctx context.Context, path string) (DirEntry, error) {
 
 // Mkdir creates the directory at path, along with any missing parents.
 func (s *Sandbox) Mkdir(ctx context.Context, path string, mode fs.FileMode) error {
-	req := api.FSRequest{
+	req := service.FSRequest{
 		Path: path,
 		Mode: strconv.FormatUint(uint64(mode.Perm()), 8),
 	}
