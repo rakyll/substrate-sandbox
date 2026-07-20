@@ -1,22 +1,17 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"time"
+	"io"
 
 	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
-	ateclientset "github.com/agent-substrate/substrate/pkg/client/clientset/versioned"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 )
 
 // defaultPauseImage is the digest-pinned pause image recommended by the
@@ -30,18 +25,15 @@ type deployConfig struct {
 	namespace       string
 	template        string
 	workerPool      string
-	guestImage   string
+	guestImage      string
 	ateomImage      string
 	pauseImage      string
 	snapshotsBucket string
 	replicas        int32
 	apiImage        string
 	apiReplicas     int32
-	guestCommand []string
-	waitForReady    time.Duration
+	guestCommand    []string
 	poolLabels      map[string]string
-	kubeconfig      string
-	kubeContext     string
 }
 
 func newDeployCommand(namespace, template *string) *cobra.Command {
@@ -49,16 +41,17 @@ func newDeployCommand(namespace, template *string) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy the system to a cluster running Agent Substrate",
-		Long: `Deploy creates everything sandboxes need on a Kubernetes cluster that
-already runs the Agent Substrate system: the target namespace, a
-WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
-created from, and the ssbx-api service.
+		Short: "Generate Kubernetes manifests to deploy the system",
+		Long: `Deploy generates Kubernetes manifests for everything sandboxes need on
+a cluster that already runs the Agent Substrate system: the target
+namespace, a WorkerPool of pre-warmed workers, the ActorTemplate that
+sandboxes are created from, and the ssbx-api service. It prints YAML to
+stdout without touching the cluster; apply it with kubectl.
 
 Released ssbx binaries embed digest-pinned default images for the guest
 daemon and the worker, so only --snapshots-bucket is required:
 
-  ssbx deploy --snapshots-bucket gs://<bucket>/substrate-sandbox/
+  ssbx deploy --snapshots-bucket gs://<bucket>/substrate-sandbox/ | kubectl apply -f -
 
 Images must be pinned by digest (repo@sha256:...); Substrate rejects
 unpinned images because changing an image invalidates snapshots. To use
@@ -70,7 +63,7 @@ push them with ko:
     --guest-image $(ko build github.com/rakyll/substrate-sandbox/cmd/ssbx-guest) \
     --ateom-image  $(cd <substrate-checkout> && ko build ./cmd/ateom-gvisor) \
     --snapshots-bucket gs://<bucket>/substrate-sandbox/ \
-    --template sandbox --namespace substrate-sandbox`,
+    --template sandbox --namespace substrate-sandbox | kubectl apply -f -`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := cfg.resolveImages(); err != nil {
@@ -86,11 +79,7 @@ push them with ko:
 			}
 			cfg.poolLabels = map[string]string{"workload": cfg.template}
 
-			kube, ate, err := kubeClients(cfg.kubeconfig, cfg.kubeContext)
-			if err != nil {
-				return err
-			}
-			return runDeploy(cmd.Context(), cmd, kube, ate, cfg)
+			return writeManifests(cmd.OutOrStdout(), buildManifests(cfg))
 		},
 	}
 
@@ -103,9 +92,6 @@ push them with ko:
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
 	cmd.Flags().Int32Var(&cfg.replicas, "replicas", 2, "number of pre-warmed worker pods")
 	cmd.Flags().StringSliceVar(&cfg.guestCommand, "guest-command", []string{"/ko-app/ssbx-guest", "-workdir", "/workspace"}, "guest container entrypoint")
-	cmd.Flags().DurationVar(&cfg.waitForReady, "wait", 5*time.Minute, "how long to wait for the ActorTemplate to become Ready (0 to skip)")
-	cmd.Flags().StringVar(&cfg.kubeconfig, "kubeconfig", "", "path to the kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)")
-	cmd.Flags().StringVar(&cfg.kubeContext, "kube-context", "", "kubeconfig context to use")
 	cmd.MarkFlagRequired("snapshots-bucket")
 
 	return cmd
@@ -128,76 +114,50 @@ ssbx is built by a release); pass the images explicitly:
     ...`)
 }
 
-func kubeClients(kubeconfig, kubeContext string) (kubernetes.Interface, ateclientset.Interface, error) {
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	if kubeconfig != "" {
-		rules.ExplicitPath = kubeconfig
+// buildManifests returns the Kubernetes objects that make up a deployment,
+// in apply order.
+func buildManifests(cfg deployConfig) []any {
+	return []any{
+		buildNamespace(cfg),
+		buildWorkerPool(cfg),
+		buildActorTemplate(cfg),
+		buildAPIDeployment(cfg),
+		buildAPIService(cfg),
 	}
-	overrides := &clientcmd.ConfigOverrides{CurrentContext: kubeContext}
-	restConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides).ClientConfig()
-	if err != nil {
-		return nil, nil, fmt.Errorf("loading kubeconfig: %w", err)
-	}
-	kube, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("creating Kubernetes client: %w", err)
-	}
-	ate, err := ateclientset.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("creating Substrate client: %w", err)
-	}
-	return kube, ate, nil
 }
 
-func runDeploy(ctx context.Context, cmd *cobra.Command, kube kubernetes.Interface, ate ateclientset.Interface, cfg deployConfig) error {
-	if err := ensureNamespace(ctx, kube, cfg.namespace); err != nil {
-		return err
-	}
-	cmd.Printf("namespace %s ready\n", cfg.namespace)
-
-	if err := applyWorkerPool(ctx, ate, cfg); err != nil {
-		return err
-	}
-	cmd.Printf("workerpool %s/%s applied (%d replicas)\n", cfg.namespace, cfg.workerPool, cfg.replicas)
-
-	if err := applyActorTemplate(ctx, ate, cfg); err != nil {
-		return err
-	}
-	cmd.Printf("actortemplate %s/%s applied\n", cfg.namespace, cfg.template)
-
-	if err := applyAPI(ctx, kube, cfg); err != nil {
-		return err
-	}
-	cmd.Printf("api %s/%s applied (%d replicas); reach it with: kubectl port-forward -n %s svc/%s 7777:7777\n",
-		cfg.namespace, apiName, cfg.apiReplicas, cfg.namespace, apiName)
-
-	if cfg.waitForReady <= 0 {
-		return nil
-	}
-	cmd.Printf("waiting up to %s for actortemplate %s/%s to become Ready...\n", cfg.waitForReady, cfg.namespace, cfg.template)
-	if err := waitTemplateReady(ctx, ate, cfg.namespace, cfg.template, cfg.waitForReady); err != nil {
-		return err
-	}
-	cmd.Printf("actortemplate %s/%s is Ready; create sandboxes with: ssbx create <id> --template %s --namespace %s\n",
-		cfg.namespace, cfg.template, cfg.template, cfg.namespace)
-	return nil
-}
-
-func ensureNamespace(ctx context.Context, kube kubernetes.Interface, namespace string) error {
-	_, err := kube.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
-	}, metav1.CreateOptions{})
-	if apierrors.IsAlreadyExists(err) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("creating namespace %q: %w", namespace, err)
+// writeManifests writes the objects as a multi-document YAML stream.
+func writeManifests(w io.Writer, objs []any) error {
+	for i, obj := range objs {
+		data, err := yaml.Marshal(obj)
+		if err != nil {
+			return fmt.Errorf("encoding manifest: %w", err)
+		}
+		if i > 0 {
+			if _, err := io.WriteString(w, "---\n"); err != nil {
+				return err
+			}
+		}
+		if _, err := w.Write(data); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func applyWorkerPool(ctx context.Context, ate ateclientset.Interface, cfg deployConfig) error {
-	pool := &atev1alpha1.WorkerPool{
+func buildNamespace(cfg deployConfig) *corev1.Namespace {
+	return &corev1.Namespace{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
+		ObjectMeta: metav1.ObjectMeta{Name: cfg.namespace},
+	}
+}
+
+func buildWorkerPool(cfg deployConfig) *atev1alpha1.WorkerPool {
+	return &atev1alpha1.WorkerPool{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: atev1alpha1.GroupVersion.String(),
+			Kind:       "WorkerPool",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfg.workerPool,
 			Namespace: cfg.namespace,
@@ -208,26 +168,15 @@ func applyWorkerPool(ctx context.Context, ate ateclientset.Interface, cfg deploy
 			AteomImage: cfg.ateomImage,
 		},
 	}
-	client := ate.ApiV1alpha1().WorkerPools(cfg.namespace)
-	_, err := client.Create(ctx, pool, metav1.CreateOptions{})
-	if apierrors.IsAlreadyExists(err) {
-		existing, getErr := client.Get(ctx, cfg.workerPool, metav1.GetOptions{})
-		if getErr != nil {
-			return fmt.Errorf("getting workerpool %q: %w", cfg.workerPool, getErr)
-		}
-		existing.Labels = cfg.poolLabels
-		existing.Spec = pool.Spec
-		_, err = client.Update(ctx, existing, metav1.UpdateOptions{})
-	}
-	if err != nil {
-		return fmt.Errorf("applying workerpool %q: %w", cfg.workerPool, err)
-	}
-	return nil
 }
 
-func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg deployConfig) error {
+func buildActorTemplate(cfg deployConfig) *atev1alpha1.ActorTemplate {
 	port := "80"
-	template := &atev1alpha1.ActorTemplate{
+	return &atev1alpha1.ActorTemplate{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: atev1alpha1.GroupVersion.String(),
+			Kind:       "ActorTemplate",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cfg.template,
 			Namespace: cfg.namespace,
@@ -257,29 +206,15 @@ func applyActorTemplate(ctx context.Context, ate ateclientset.Interface, cfg dep
 			},
 		},
 	}
-	client := ate.ApiV1alpha1().ActorTemplates(cfg.namespace)
-	_, err := client.Create(ctx, template, metav1.CreateOptions{})
-	if apierrors.IsAlreadyExists(err) {
-		existing, getErr := client.Get(ctx, cfg.template, metav1.GetOptions{})
-		if getErr != nil {
-			return fmt.Errorf("getting actortemplate %q: %w", cfg.template, getErr)
-		}
-		existing.Spec = template.Spec
-		_, err = client.Update(ctx, existing, metav1.UpdateOptions{})
-	}
-	if err != nil {
-		return fmt.Errorf("applying actortemplate %q: %w", cfg.template, err)
-	}
-	return nil
 }
 
-// applyAPI deploys the ssbx-api service: a Deployment
-// pointed at the in-cluster Substrate endpoints and a Service exposing it
-// on port 80.
-func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) error {
+// buildAPIDeployment returns the ssbx-api Deployment, pointed at the
+// in-cluster Substrate endpoints.
+func buildAPIDeployment(cfg deployConfig) *appsv1.Deployment {
 	labels := map[string]string{"app": apiName}
 	replicas := cfg.apiReplicas
-	deployment := &appsv1.Deployment{
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{APIVersion: "apps/v1", Kind: "Deployment"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      apiName,
 			Namespace: cfg.namespace,
@@ -296,7 +231,7 @@ func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) 
 						Image: cfg.apiImage,
 						// ateapi/atenet default to the in-cluster
 						// Substrate service addresses.
-						Args: []string{"-listen", "0.0.0.0:7777"},
+						Args:  []string{"-listen", "0.0.0.0:7777"},
 						Ports: []corev1.ContainerPort{{ContainerPort: 7777}},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
@@ -311,22 +246,12 @@ func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) 
 			},
 		},
 	}
-	deployments := kube.AppsV1().Deployments(cfg.namespace)
-	_, err := deployments.Create(ctx, deployment, metav1.CreateOptions{})
-	if apierrors.IsAlreadyExists(err) {
-		existing, getErr := deployments.Get(ctx, apiName, metav1.GetOptions{})
-		if getErr != nil {
-			return fmt.Errorf("getting deployment %q: %w", apiName, getErr)
-		}
-		existing.Labels = labels
-		existing.Spec = deployment.Spec
-		_, err = deployments.Update(ctx, existing, metav1.UpdateOptions{})
-	}
-	if err != nil {
-		return fmt.Errorf("applying deployment %q: %w", apiName, err)
-	}
+}
 
-	service := &corev1.Service{
+func buildAPIService(cfg deployConfig) *corev1.Service {
+	labels := map[string]string{"app": apiName}
+	return &corev1.Service{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Service"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      apiName,
 			Namespace: cfg.namespace,
@@ -340,51 +265,4 @@ func applyAPI(ctx context.Context, kube kubernetes.Interface, cfg deployConfig) 
 			}},
 		},
 	}
-	services := kube.CoreV1().Services(cfg.namespace)
-	_, err = services.Create(ctx, service, metav1.CreateOptions{})
-	if apierrors.IsAlreadyExists(err) {
-		existing, getErr := services.Get(ctx, apiName, metav1.GetOptions{})
-		if getErr != nil {
-			return fmt.Errorf("getting service %q: %w", apiName, getErr)
-		}
-		// Update in place to preserve the allocated ClusterIP.
-		existing.Labels = labels
-		existing.Spec.Selector = service.Spec.Selector
-		existing.Spec.Ports = service.Spec.Ports
-		_, err = services.Update(ctx, existing, metav1.UpdateOptions{})
-	}
-	if err != nil {
-		return fmt.Errorf("applying service %q: %w", apiName, err)
-	}
-	return nil
-}
-
-func waitTemplateReady(ctx context.Context, ate ateclientset.Interface, namespace, name string, timeout time.Duration) error {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	var lastPhase atev1alpha1.PhaseType
-	err := wait.PollUntilContextCancel(ctx, 2*time.Second, true, func(ctx context.Context) (bool, error) {
-		template, err := ate.ApiV1alpha1().ActorTemplates(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		lastPhase = template.Status.Phase
-		if lastPhase == atev1alpha1.PhaseFailed {
-			return false, fmt.Errorf("actortemplate %s/%s failed", namespace, name)
-		}
-		if lastPhase == atev1alpha1.PhaseReady {
-			return true, nil
-		}
-		for _, cond := range template.Status.Conditions {
-			if cond.Type == "Ready" && cond.Status == metav1.ConditionTrue {
-				return true, nil
-			}
-		}
-		return false, nil
-	})
-	if err != nil {
-		return fmt.Errorf("waiting for actortemplate %s/%s to become Ready (last phase %q): %w",
-			namespace, name, lastPhase, err)
-	}
-	return nil
 }

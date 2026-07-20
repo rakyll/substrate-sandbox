@@ -54,8 +54,8 @@ Prerequisites: a cluster with [Agent Substrate](https://github.com/agent-substra
 installed and a snapshots bucket.
 
 ```bash
-# 1. Deploy the system: namespace, worker pool, and sandbox template.
-ssbx deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/
+# 1. Deploy the system: namespace, worker pool, sandbox template, and API.
+ssbx deploy --snapshots-bucket gs://<your-bucket>/substrate-sandbox/ | kubectl apply -f -
 
 # 2. Port-forward the sandbox API.
 kubectl port-forward svc/ssbx-api 7777:7777 &
@@ -79,7 +79,8 @@ curl -X POST localhost:7777/v1/sandboxes/dev1/cmd \
 ## CLI
 
 Lifecycle and command execution are top-level commands; file operations are
-grouped under `fs`; `deploy` sets up the system on a cluster:
+grouped under `fs`; `deploy` generates the manifests that set up the system
+on a cluster:
 
 ```bash
 $ ssbx
@@ -89,7 +90,7 @@ Available Commands:
   cmd         Run a shell command line in the sandbox
   create      Create and start a sandbox
   delete      Delete a sandbox
-  deploy      Deploy the system to a cluster running Agent Substrate
+  deploy      Generate Kubernetes manifests to deploy the system
   fs          Operate on files and directories in a sandbox
   info        Show a sandbox's status
   pause       Snapshot locally on the node for fast resume
@@ -109,10 +110,11 @@ Available Commands:
   write       Write stdin to a sandbox file
 
 $ ssbx deploy --help
-Deploy creates everything sandboxes need on a Kubernetes cluster that
-already runs the Agent Substrate system: the target namespace, a
-WorkerPool of pre-warmed workers, the ActorTemplate that sandboxes are
-created from, and the ssbx-api service.
+Deploy generates Kubernetes manifests for everything sandboxes need on
+a cluster that already runs the Agent Substrate system: the target
+namespace, a WorkerPool of pre-warmed workers, the ActorTemplate that
+sandboxes are created from, and the ssbx-api service. It prints YAML to
+stdout without touching the cluster; apply it with kubectl.
 ```
 
 ## SDK

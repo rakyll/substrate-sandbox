@@ -1,6 +1,6 @@
 // Command ssbx is a CLI for the sandbox service. Sandbox commands go
-// through the ssbx-api service using the sandbox SDK;
-// system commands talk to the Kubernetes API.
+// through the ssbx-api service using the sandbox SDK; deploy generates
+// Kubernetes manifests for setting up the system on a cluster.
 //
 // The API endpoint can be set with the --api flag or the
 // SUBSTRATE_SANDBOX_API environment variable.

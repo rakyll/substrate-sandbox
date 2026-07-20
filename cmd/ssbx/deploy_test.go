@@ -2,15 +2,12 @@ package main
 
 import (
 	"bytes"
-	"context"
+	"strings"
 	"testing"
-	"time"
 
 	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
-	atefake "github.com/agent-substrate/substrate/pkg/client/clientset/versioned/fake"
-	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubefake "k8s.io/client-go/kubernetes/fake"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func testDeployConfig() deployConfig {
@@ -18,22 +15,16 @@ func testDeployConfig() deployConfig {
 		namespace:       "substrate-sandbox",
 		template:        "sandbox",
 		workerPool:      "sandbox-workerpool",
-		guestImage:   "example.com/guest@sha256:aaaa",
+		guestImage:      "example.com/guest@sha256:aaaa",
 		ateomImage:      "example.com/ateom@sha256:bbbb",
 		apiImage:        "example.com/api@sha256:cccc",
 		pauseImage:      defaultPauseImage,
 		snapshotsBucket: "gs://bucket/substrate-sandbox/",
 		replicas:        3,
 		apiReplicas:     1,
-		guestCommand: []string{"/ko-app/ssbx-guest", "-workdir", "/workspace"},
+		guestCommand:    []string{"/ko-app/ssbx-guest", "-workdir", "/workspace"},
 		poolLabels:      map[string]string{"workload": "sandbox"},
 	}
-}
-
-func quietCommand() *cobra.Command {
-	cmd := &cobra.Command{}
-	cmd.SetOut(&bytes.Buffer{})
-	return cmd
 }
 
 func TestResolveImages(t *testing.T) {
@@ -52,23 +43,21 @@ func TestResolveImages(t *testing.T) {
 	}
 }
 
-func TestRunDeployCreatesResources(t *testing.T) {
-	kube := kubefake.NewClientset()
-	ate := atefake.NewSimpleClientset()
+func TestBuildManifests(t *testing.T) {
 	cfg := testDeployConfig()
-	cfg.waitForReady = 0 // the fake has no controller to flip Ready
-
-	if err := runDeploy(context.Background(), quietCommand(), kube, ate, cfg); err != nil {
-		t.Fatalf("runDeploy: %v", err)
+	objs := buildManifests(cfg)
+	if len(objs) != 5 {
+		t.Fatalf("got %d manifests, want 5", len(objs))
 	}
 
-	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), "substrate-sandbox", metav1.GetOptions{}); err != nil {
-		t.Errorf("namespace not created: %v", err)
+	ns := objs[0].(*corev1.Namespace)
+	if ns.Name != "substrate-sandbox" {
+		t.Errorf("namespace = %q, want substrate-sandbox", ns.Name)
 	}
 
-	pool, err := ate.ApiV1alpha1().WorkerPools("substrate-sandbox").Get(context.Background(), "sandbox-workerpool", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("workerpool not created: %v", err)
+	pool := objs[1].(*atev1alpha1.WorkerPool)
+	if pool.Namespace != cfg.namespace || pool.Name != "sandbox-workerpool" {
+		t.Errorf("workerpool = %s/%s, want %s/sandbox-workerpool", pool.Namespace, pool.Name, cfg.namespace)
 	}
 	if pool.Spec.Replicas != 3 || pool.Spec.AteomImage != cfg.ateomImage {
 		t.Errorf("workerpool spec = %+v, want replicas 3 and ateom image %q", pool.Spec, cfg.ateomImage)
@@ -77,10 +66,7 @@ func TestRunDeployCreatesResources(t *testing.T) {
 		t.Errorf("workerpool labels = %v, want workload=sandbox", pool.Labels)
 	}
 
-	template, err := ate.ApiV1alpha1().ActorTemplates("substrate-sandbox").Get(context.Background(), "sandbox", metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("actortemplate not created: %v", err)
-	}
+	template := objs[2].(*atev1alpha1.ActorTemplate)
 	if len(template.Spec.Containers) != 1 || template.Spec.Containers[0].Image != cfg.guestImage {
 		t.Errorf("template containers = %+v, want one guest container with image %q",
 			template.Spec.Containers, cfg.guestImage)
@@ -96,10 +82,7 @@ func TestRunDeployCreatesResources(t *testing.T) {
 		t.Errorf("readyz = %+v, want HTTP GET /healthz", readyz)
 	}
 
-	deployment, err := kube.AppsV1().Deployments("substrate-sandbox").Get(context.Background(), apiName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("api deployment not created: %v", err)
-	}
+	deployment := objs[3].(*appsv1.Deployment)
 	containers := deployment.Spec.Template.Spec.Containers
 	if len(containers) != 1 || containers[0].Image != cfg.apiImage {
 		t.Errorf("api containers = %+v, want one container with image %q", containers, cfg.apiImage)
@@ -108,10 +91,7 @@ func TestRunDeployCreatesResources(t *testing.T) {
 		t.Errorf("api replicas = %d, want 1", *deployment.Spec.Replicas)
 	}
 
-	service, err := kube.CoreV1().Services("substrate-sandbox").Get(context.Background(), apiName, metav1.GetOptions{})
-	if err != nil {
-		t.Fatalf("api service not created: %v", err)
-	}
+	service := objs[4].(*corev1.Service)
 	if service.Spec.Selector["app"] != apiName {
 		t.Errorf("api service selector = %v, want app=%s", service.Spec.Selector, apiName)
 	}
@@ -120,60 +100,28 @@ func TestRunDeployCreatesResources(t *testing.T) {
 	}
 }
 
-func TestRunDeployIsIdempotent(t *testing.T) {
-	kube := kubefake.NewClientset()
-	ate := atefake.NewSimpleClientset()
-	cfg := testDeployConfig()
-	cfg.waitForReady = 0
+func TestWriteManifests(t *testing.T) {
+	var buf bytes.Buffer
+	if err := writeManifests(&buf, buildManifests(testDeployConfig())); err != nil {
+		t.Fatalf("writeManifests: %v", err)
+	}
+	out := buf.String()
 
-	if err := runDeploy(context.Background(), quietCommand(), kube, ate, cfg); err != nil {
-		t.Fatalf("first deploy: %v", err)
+	if got := strings.Count(out, "\n---\n"); got != 4 {
+		t.Errorf("got %d document separators, want 4:\n%s", got, out)
 	}
-
-	// A second deploy with changed settings updates in place.
-	cfg.replicas = 5
-	cfg.guestImage = "example.com/guest@sha256:cccc"
-	if err := runDeploy(context.Background(), quietCommand(), kube, ate, cfg); err != nil {
-		t.Fatalf("second deploy: %v", err)
-	}
-
-	pool, err := ate.ApiV1alpha1().WorkerPools("substrate-sandbox").Get(context.Background(), "sandbox-workerpool", metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if pool.Spec.Replicas != 5 {
-		t.Errorf("replicas after re-deploy = %d, want 5", pool.Spec.Replicas)
-	}
-	template, err := ate.ApiV1alpha1().ActorTemplates("substrate-sandbox").Get(context.Background(), "sandbox", metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if template.Spec.Containers[0].Image != "example.com/guest@sha256:cccc" {
-		t.Errorf("guest image after re-deploy = %q, want the updated digest", template.Spec.Containers[0].Image)
-	}
-}
-
-func TestRunDeployWaitsForReady(t *testing.T) {
-	kube := kubefake.NewClientset()
-	ate := atefake.NewSimpleClientset()
-	cfg := testDeployConfig()
-	cfg.waitForReady = 5 * time.Second
-
-	// Flip the template to Ready shortly after deploy creates it,
-	// simulating the Substrate controller.
-	go func() {
-		for {
-			template, err := ate.ApiV1alpha1().ActorTemplates(cfg.namespace).Get(context.Background(), cfg.template, metav1.GetOptions{})
-			if err == nil {
-				template.Status.Phase = atev1alpha1.PhaseReady
-				ate.ApiV1alpha1().ActorTemplates(cfg.namespace).Update(context.Background(), template, metav1.UpdateOptions{})
-				return
-			}
-			time.Sleep(10 * time.Millisecond)
+	for _, want := range []string{
+		"kind: Namespace",
+		"kind: WorkerPool",
+		"kind: ActorTemplate",
+		"apiVersion: ate.dev/v1alpha1",
+		"kind: Deployment",
+		"kind: Service",
+		"image: example.com/guest@sha256:aaaa",
+		"location: gs://bucket/substrate-sandbox/",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
 		}
-	}()
-
-	if err := runDeploy(context.Background(), quietCommand(), kube, ate, cfg); err != nil {
-		t.Fatalf("runDeploy with wait: %v", err)
 	}
 }
