@@ -22,6 +22,7 @@ func testDeployConfig() deployConfig {
 		snapshotsBucket: "gs://bucket/substrate-sandbox/",
 		replicas:        3,
 		apiReplicas:     1,
+		apiPort:         7777,
 		guestCommand:    []string{"/ko-app/ssbx-guest", "-workdir", "/workspace"},
 		poolLabels:      map[string]string{"workload": "sandbox"},
 	}
@@ -97,6 +98,29 @@ func TestBuildManifests(t *testing.T) {
 	}
 	if len(service.Spec.Ports) != 1 || service.Spec.Ports[0].Port != 7777 || service.Spec.Ports[0].TargetPort.IntValue() != 7777 {
 		t.Errorf("api service ports = %+v, want 7777 -> 7777", service.Spec.Ports)
+	}
+}
+
+func TestBuildManifestsCustomAPIPort(t *testing.T) {
+	cfg := testDeployConfig()
+	cfg.apiPort = 9999
+	objs := buildManifests(cfg)
+
+	deployment := objs[3].(*appsv1.Deployment)
+	container := deployment.Spec.Template.Spec.Containers[0]
+	if got := container.Args[1]; got != "0.0.0.0:9999" {
+		t.Errorf("api -listen arg = %q, want 0.0.0.0:9999", got)
+	}
+	if container.Ports[0].ContainerPort != 9999 {
+		t.Errorf("api container port = %d, want 9999", container.Ports[0].ContainerPort)
+	}
+	if got := container.ReadinessProbe.HTTPGet.Port.IntValue(); got != 9999 {
+		t.Errorf("api probe port = %d, want 9999", got)
+	}
+
+	service := objs[4].(*corev1.Service)
+	if service.Spec.Ports[0].Port != 9999 || service.Spec.Ports[0].TargetPort.IntValue() != 9999 {
+		t.Errorf("api service ports = %+v, want 9999 -> 9999", service.Spec.Ports)
 	}
 }
 

@@ -33,6 +33,7 @@ type deployConfig struct {
 	replicas        int32
 	apiImage        string
 	apiReplicas     int32
+	apiPort         int32
 	guestCommand    []string
 	poolLabels      map[string]string
 }
@@ -94,6 +95,7 @@ your own images, build and push them with ko:
 	cmd.Flags().StringVar(&cfg.pauseImage, "pause-image", defaultPauseImage, "digest-pinned pause image for the root sandbox container")
 	cmd.Flags().StringVar(&cfg.apiImage, "api-image", "", "digest-pinned ssbx-api image for the API service")
 	cmd.Flags().Int32Var(&cfg.apiReplicas, "api-replicas", 1, "number of API service replicas")
+	cmd.Flags().Int32Var(&cfg.apiPort, "api-port", 7777, "port the ssbx-api service listens on")
 	cmd.Flags().StringVar(&cfg.workerPool, "workerpool", "", "WorkerPool name (defaults to <template>-workerpool)")
 	cmd.Flags().Int32Var(&cfg.replicas, "replicas", 2, "number of pre-warmed worker pods")
 	cmd.Flags().StringSliceVar(&cfg.guestCommand, "guest-command", []string{"/ko-app/ssbx-guest", "-workdir", "/workspace"}, "guest container entrypoint")
@@ -237,13 +239,13 @@ func buildAPIDeployment(cfg deployConfig) *appsv1.Deployment {
 						Image: cfg.apiImage,
 						// ateapi/atenet default to the in-cluster
 						// Substrate service addresses.
-						Args:  []string{"-listen", "0.0.0.0:7777"},
-						Ports: []corev1.ContainerPort{{ContainerPort: 7777}},
+						Args:  []string{"-listen", fmt.Sprintf("0.0.0.0:%d", cfg.apiPort)},
+						Ports: []corev1.ContainerPort{{ContainerPort: cfg.apiPort}},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
 									Path: "/healthz",
-									Port: intstr.FromInt32(7777),
+									Port: intstr.FromInt32(cfg.apiPort),
 								},
 							},
 						},
@@ -266,8 +268,8 @@ func buildAPIService(cfg deployConfig) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Selector: labels,
 			Ports: []corev1.ServicePort{{
-				Port:       7777,
-				TargetPort: intstr.FromInt32(7777),
+				Port:       cfg.apiPort,
+				TargetPort: intstr.FromInt32(cfg.apiPort),
 			}},
 		},
 	}

@@ -159,8 +159,9 @@ program.
 ## API
 
 `ssbx-api` serves the API. `ssbx deploy` runs it in-cluster as the
-`ssbx-api` service (port 7777); it can also be run standalone (default
-`0.0.0.0:7777`). Responses are JSON unless noted.
+`ssbx-api` service (port 7777 by default; adjust with `--api-port`); it
+can also be run standalone (default `0.0.0.0:7777`). Responses are JSON
+unless noted.
 
 ### Sandboxes
 
