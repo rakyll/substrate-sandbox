@@ -223,7 +223,7 @@ func main() {
 
 	fsCmd.AddCommand(&cobra.Command{
 		Use:   "rmdir <id> <path>",
-		Short: "Delete a directory tree in the sandbox",
+		Short: "Delete a directory in the sandbox",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return client.Sandbox(args[0]).RemoveDir(cmd.Context(), args[1])
