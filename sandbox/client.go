@@ -34,7 +34,7 @@ type ClientOptions struct {
 	Template string
 
 	// Namespace is the Kubernetes namespace the ActorTemplates live in.
-	// Empty means the service's default ("default").
+	// Empty means the service's default ("substrate-sandbox").
 	Namespace string
 
 	// HTTPClient overrides the HTTP client used for API traffic.

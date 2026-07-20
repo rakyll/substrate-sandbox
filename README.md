@@ -63,7 +63,7 @@ Then create and use a sandbox:
 
 ```bash
 # Port-forward the sandbox API.
-kubectl port-forward svc/ssbx-api 7777:7777 &
+kubectl port-forward -n substrate-sandbox svc/ssbx-api 7777:7777 &
 
 # Create and use a sandbox.
 ssbx create dev1
@@ -175,7 +175,7 @@ Create body (only `id` is required):
 {
   "id": "dev1",
   "template": "sandbox",
-  "namespace": "default"
+  "namespace": "substrate-sandbox"
 }
 ```
 

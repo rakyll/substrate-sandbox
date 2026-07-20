@@ -201,9 +201,9 @@ func TestValidation(t *testing.T) {
 		t.Errorf("create with defaults status = %d, want 201", resp.StatusCode)
 	}
 	got := decode[api.SandboxInfo](t, resp)
-	if got.Template != service.DefaultTemplate || got.Namespace != "default" {
+	if got.Template != service.DefaultTemplate || got.Namespace != service.DefaultNamespace {
 		t.Errorf("template with defaults = %q in %q, want %q in %q",
-			got.Template, got.Namespace, service.DefaultTemplate, "default")
+			got.Template, got.Namespace, service.DefaultTemplate, service.DefaultNamespace)
 	}
 	resp = do(t, "GET", srv.URL+"/v1/sandboxes/absent", "")
 	if resp.StatusCode != http.StatusNotFound {

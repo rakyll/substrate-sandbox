@@ -58,7 +58,7 @@ func main() {
 	}
 	root.PersistentFlags().StringVar(&endpoint, "api", envOr("SUBSTRATE_SANDBOX_API", "http://127.0.0.1:7777"), "base URL of the ssbx-api service")
 	root.PersistentFlags().StringVar(&template, "template", "sandbox", "ActorTemplate name (for create)")
-	root.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace of the ActorTemplate")
+	root.PersistentFlags().StringVar(&namespace, "namespace", "substrate-sandbox", "Kubernetes namespace of the ActorTemplate")
 
 	fsCmd := &cobra.Command{
 		Use:   "fs",
@@ -66,7 +66,7 @@ func main() {
 	}
 	root.AddCommand(fsCmd)
 
-	root.AddCommand(newDeployCommand(&namespace, &template))
+	root.AddCommand(newDeployCommand(&template))
 
 	root.AddCommand(&cobra.Command{
 		Use:   "create <id>",

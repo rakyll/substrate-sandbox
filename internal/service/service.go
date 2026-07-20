@@ -21,6 +21,11 @@ import (
 // does not specify one.
 const DefaultTemplate = "sandbox"
 
+// DefaultNamespace is the Kubernetes namespace the ActorTemplate is
+// looked up in when a create request does not specify one. It matches the
+// default namespace of `ssbx deploy`.
+const DefaultNamespace = "substrate-sandbox"
+
 func toSandboxInfo(info direct.Info) api.SandboxInfo {
 	return api.SandboxInfo{
 		ID:                 info.ID,
@@ -97,9 +102,12 @@ func (s *server) create(w http.ResponseWriter, r *http.Request) {
 	if req.Template == "" {
 		req.Template = DefaultTemplate
 	}
-	opts := []direct.CreateOption{direct.WithTemplate(req.Template)}
-	if req.Namespace != "" {
-		opts = append(opts, direct.WithNamespace(req.Namespace))
+	if req.Namespace == "" {
+		req.Namespace = DefaultNamespace
+	}
+	opts := []direct.CreateOption{
+		direct.WithTemplate(req.Template),
+		direct.WithNamespace(req.Namespace),
 	}
 	if len(req.WorkerSelector) > 0 {
 		opts = append(opts, direct.WithWorkerSelector(req.WorkerSelector))

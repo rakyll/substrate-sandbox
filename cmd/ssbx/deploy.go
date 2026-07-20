@@ -6,6 +6,7 @@ import (
 	"io"
 
 	atev1alpha1 "github.com/agent-substrate/substrate/pkg/api/v1alpha1"
+	"github.com/rakyll/substrate-sandbox/internal/service"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +37,7 @@ type deployConfig struct {
 	poolLabels      map[string]string
 }
 
-func newDeployCommand(namespace, template *string) *cobra.Command {
+func newDeployCommand(template *string) *cobra.Command {
 	cfg := deployConfig{}
 
 	cmd := &cobra.Command{
@@ -73,7 +74,6 @@ your own images, build and push them with ko:
 			if err := cfg.resolveImages(); err != nil {
 				return err
 			}
-			cfg.namespace = *namespace
 			cfg.template = *template
 			if cfg.template == "" {
 				cfg.template = "sandbox"
@@ -87,6 +87,7 @@ your own images, build and push them with ko:
 		},
 	}
 
+	cmd.Flags().StringVar(&cfg.namespace, "namespace", service.DefaultNamespace, "Kubernetes namespace to deploy into")
 	cmd.Flags().StringVar(&cfg.guestImage, "guest-image", "", "digest-pinned ssbx-guest image (repo@sha256:...)")
 	cmd.Flags().StringVar(&cfg.ateomImage, "ateom-image", "", "digest-pinned ateom image for the worker pool, e.g. ateom-gvisor built from the Substrate repo")
 	cmd.Flags().StringVar(&cfg.snapshotsBucket, "snapshots-bucket", "", "object-storage bucket (with optional prefix) for suspend snapshots, e.g. gs://bucket/prefix/")
