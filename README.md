@@ -161,9 +161,21 @@ program.
 A Python SDK with the same surface lives in [sandbox-py/](sandbox-py/README.md):
 
 ```python
-client = SandboxClient("http://localhost:7777")
+from ssbx import SandboxClient
+
+client = SandboxClient(
+    "http://localhost:7777",  # ssbx-api
+    template="sandbox",       # ActorTemplate name
+)
+
 sb = client.create("dev1")
-print(sb.cmd("uname -a").stdout)
+sb.write_file("/workspace/main.py", src, 0o644)
+res = sb.cmd("cd /workspace && python main.py")
+print(res.stdout, res.exit_code)
+
+sb.suspend()
+sb.resume()
+sb.delete()
 ```
 
 ## API
