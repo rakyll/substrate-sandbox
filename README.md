@@ -25,10 +25,11 @@ while this project adds the sandbox-shaped API on top.
                                                                ╰──────────────────────╯
 ```
 
-- **`sandbox`** — The client library that allows creation, suspension,
+- **`sandbox`** — The Go client library that allows creation, suspension,
 resumption, and deletion of sandboxes; as well as file operations and running remote
-commands on the sandboxes. It's currently available in Go, more languages are coming
-soon.
+commands on the sandboxes.
+- **`sandbox-py`** — The Python client library, see
+  [sandbox-py/README.md](sandbox-py/README.md) for more.
 - **`cmd/ssbx`** — Provides a CLI over the API, and utilies to
   make it easier to deploy Substrate Sandbox.
 - **`cmd/ssbx-api`** — The API service that bridges clients to
@@ -156,6 +157,14 @@ sb.Delete(ctx)
 
 See [examples/quickstart](examples/quickstart/main.go) for a complete
 program.
+
+A Python SDK with the same surface lives in [sandbox-py/](sandbox-py/README.md):
+
+```python
+client = SandboxClient("http://localhost:7777")
+sb = client.create("dev1")
+print(sb.cmd("uname -a").stdout)
+```
 
 ## API
 
